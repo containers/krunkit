@@ -1,0 +1,9 @@
+[package]
+name = "krunkit"
+version = "0.1.0"
+authors = ["Tyler Fanelli <tfanelli@redhat.com>"]
+license = "Apache-2.0"
+edition = "2021"
+readme = "README.md"
+
+[dependencies]
