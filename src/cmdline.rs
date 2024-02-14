@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 
 #[derive(Debug, Parser)]
@@ -116,7 +116,9 @@ mod bootloader {
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             let value = val_parse(s.to_string(), "variable-store")?;
 
-            Ok(Self(PathBuf::from_str(&value).unwrap()))
+            Ok(Self(
+                PathBuf::from_str(&value).context("variable-store argument not a valid path")?,
+            ))
         }
     }
 
@@ -191,7 +193,8 @@ mod device {
             let args = args_parse(s.to_string(), "virtio-blk", Some(1))?;
 
             Ok(Self {
-                path: PathBuf::from_str(&val_parse(args[0].clone(), "path")?).unwrap(),
+                path: PathBuf::from_str(&val_parse(args[0].clone(), "path")?)
+                    .context("path argument not a valid path")?,
             })
         }
     }
@@ -209,7 +212,7 @@ mod device {
 
             Ok(Self {
                 log_file_path: PathBuf::from_str(&val_parse(args[0].clone(), "logFilePath")?)
-                    .unwrap(),
+                    .context("logFilePath argument not a valid path")?,
             })
         }
     }
@@ -227,8 +230,10 @@ mod device {
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             let args = args_parse(s.to_string(), "virtio-vsock", Some(3))?;
 
-            let port = u32::from_str(&val_parse(args[0].clone(), "port")?).unwrap();
-            let socket_url = PathBuf::from_str(&val_parse(args[1].clone(), "socketURL")?).unwrap();
+            let port = u32::from_str(&val_parse(args[0].clone(), "port")?)
+                .context("port argument invalid")?;
+            let socket_url = PathBuf::from_str(&val_parse(args[1].clone(), "socketURL")?)
+                .context("socketURL argument not a valid path")?;
             let action = VsockAction::from_str(&args[2])?;
 
             Ok(Self {
@@ -271,7 +276,7 @@ mod device {
 
             Ok(Self {
                 unix_socket_path: PathBuf::from_str(&val_parse(args[0].clone(), "unixSocketPath")?)
-                    .unwrap(),
+                    .context("unixSocketPath argument not a valid path")?,
                 mac_address: val_parse(args[1].clone(), "mac")?,
             })
         }
@@ -296,8 +301,10 @@ mod device {
                 ));
             }
 
-            let shared_dir = PathBuf::from_str(&val_parse(args[0].clone(), "sharedDir")?).unwrap();
-            let mount_tag = PathBuf::from_str(&val_parse(args[1].clone(), "mountTag")?).unwrap();
+            let shared_dir = PathBuf::from_str(&val_parse(args[0].clone(), "sharedDir")?)
+                .context("sharedDir argument not a valid path")?;
+            let mount_tag = PathBuf::from_str(&val_parse(args[1].clone(), "mountTag")?)
+                .context("mountTag argument not a valid path")?;
 
             Ok(Self {
                 shared_dir,
