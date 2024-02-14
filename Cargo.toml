@@ -7,3 +7,5 @@ edition = "2021"
 readme = "README.md"
 
 [dependencies]
+anyhow = "1.0.79"
+clap = { version = "4.5.0", features = ["derive"] }
