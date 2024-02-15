@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
+use cmdline::device::*;
 
 use std::convert::TryFrom;
 
@@ -38,6 +39,10 @@ impl TryFrom<Args> for KrunContext {
 
         if unsafe { krun_set_vm_config(id, args.cpus, args.memory) } < 0 {
             return Err(anyhow!("unable to set krun vCPU/RAM configuration"));
+        }
+
+        for device in &args.devices {
+            unsafe { device.krun_ctx_set(id)? }
         }
 
         Ok(Self { id, args })

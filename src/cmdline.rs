@@ -141,8 +141,24 @@ mod bootloader {
     }
 }
 
-mod device {
+pub mod device {
     use super::*;
+
+    use std::{
+        ffi::{c_char, CString},
+        os::unix::ffi::OsStrExt,
+        path::Path,
+    };
+
+    extern "C" {
+        fn krun_set_root_disk(ctx_id: u32, c_disk_path: *const c_char) -> i32;
+        fn krun_add_vsock_port(ctx_id: u32, port: u32, c_filepath: *const c_char) -> i32;
+        fn krun_add_virtiofs(ctx_id: u32, c_tag: *const c_char, c_path: *const c_char) -> i32;
+    }
+
+    pub trait KrunContextSet {
+        unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error>;
+    }
 
     #[derive(Clone, Debug)]
     pub enum VirtioDeviceConfig {
@@ -181,6 +197,19 @@ mod device {
         }
     }
 
+    impl KrunContextSet for VirtioDeviceConfig {
+        unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
+            match self {
+                Self::Blk(blk) => blk.krun_ctx_set(id),
+                Self::Rng => unimplemented!(),
+                Self::Serial(_) => unimplemented!(),
+                Self::Vsock(vsock) => vsock.krun_ctx_set(id),
+                Self::Net(_) => unimplemented!(),
+                Self::Fs(fs) => fs.krun_ctx_set(id),
+            }
+        }
+    }
+
     #[derive(Clone, Debug)]
     pub struct BlkConfig {
         path: PathBuf,
@@ -196,6 +225,18 @@ mod device {
                 path: PathBuf::from_str(&val_parse(args[0].clone(), "path")?)
                     .context("path argument not a valid path")?,
             })
+        }
+    }
+
+    impl KrunContextSet for BlkConfig {
+        unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
+            let path_cstr = path_to_cstring(&self.path)?.as_ptr() as *const c_char;
+
+            if krun_set_root_disk(id, path_cstr) < 0 {
+                return Err(anyhow!("unable to set virtio-blk root disk"));
+            }
+
+            Ok(())
         }
     }
 
@@ -241,6 +282,22 @@ mod device {
                 socket_url,
                 action,
             })
+        }
+    }
+
+    impl KrunContextSet for VsockConfig {
+        unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
+            let path_cstr = path_to_cstring(&self.socket_url)?.as_ptr() as *const c_char;
+
+            if krun_add_vsock_port(id, self.port, path_cstr) < 0 {
+                return Err(anyhow!(format!(
+                    "unable to add vsock port {} for path {}",
+                    self.port,
+                    &self.socket_url.display()
+                )));
+            }
+
+            Ok(())
         }
     }
 
@@ -311,5 +368,31 @@ mod device {
                 mount_tag,
             })
         }
+    }
+
+    impl KrunContextSet for FsConfig {
+        unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
+            let shared_dir_cstr = path_to_cstring(&self.shared_dir)?.as_ptr() as *const c_char;
+            let mount_tag_cstr = path_to_cstring(&self.mount_tag)?.as_ptr() as *const c_char;
+
+            if krun_add_virtiofs(id, mount_tag_cstr, shared_dir_cstr) < 0 {
+                return Err(anyhow!(format!(
+                    "unable to add virtiofs shared directory {} with mount tag {}",
+                    &self.shared_dir.display(),
+                    &self.mount_tag.display()
+                )));
+            }
+
+            Ok(())
+        }
+    }
+
+    fn path_to_cstring(path: &Path) -> Result<CString, anyhow::Error> {
+        let cstring = CString::new(path.as_os_str().as_bytes()).context(format!(
+            "unable to convert path {} into NULL-terminated C string",
+            path.display()
+        ))?;
+
+        Ok(cstring)
     }
 }
