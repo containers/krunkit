@@ -3,11 +3,15 @@
 #![allow(dead_code)]
 
 mod cmdline;
+mod context;
 
 use cmdline::Args;
+use context::KrunContext;
 
 use clap::Parser;
 
-fn main() {
-    let _args = Args::parse();
+fn main() -> Result<(), anyhow::Error> {
+    let _ctx = KrunContext::try_from(Args::parse())?;
+
+    Ok(())
 }

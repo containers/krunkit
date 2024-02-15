@@ -5,7 +5,7 @@ use std::{path::PathBuf, str::FromStr};
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 
-#[derive(Debug, Parser)]
+#[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None)]
 pub struct Args {
     #[arg(long)]
