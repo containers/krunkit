@@ -8,6 +8,7 @@ use anyhow::anyhow;
 
 extern "C" {
     fn krun_create_ctx() -> i32;
+    fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
 }
 
 pub struct KrunContext {
@@ -26,6 +27,18 @@ impl TryFrom<Args> for KrunContext {
 
         // Safe to unwrap, as it's already ensured that id >= 0.
         let id = u32::try_from(id).unwrap();
+
+        if args.cpus == 0 {
+            return Err(anyhow!("zero vcpus inputted (invalid)"));
+        }
+
+        if args.memory == 0 {
+            return Err(anyhow!("zero MiB RAM inputted (invalid)"));
+        }
+
+        if unsafe { krun_set_vm_config(id, args.cpus, args.memory) } < 0 {
+            return Err(anyhow!("unable to set krun vCPU/RAM configuration"));
+        }
 
         Ok(Self { id, args })
     }
