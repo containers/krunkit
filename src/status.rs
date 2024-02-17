@@ -7,6 +7,7 @@ use std::{
     os::fd::FromRawFd,
 };
 
+#[link(name = "krun")]
 extern "C" {
     fn krun_get_shutdown_eventfd(ctx_id: u32) -> i32;
 }

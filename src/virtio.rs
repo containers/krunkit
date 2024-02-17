@@ -12,6 +12,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use mac_address::MacAddress;
 
+#[link(name = "krun")]
 extern "C" {
     fn krun_set_root_disk(ctx_id: u32, c_disk_path: *const c_char) -> i32;
     fn krun_add_vsock_port(ctx_id: u32, port: u32, c_filepath: *const c_char) -> i32;
