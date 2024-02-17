@@ -9,3 +9,4 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.79"
 clap = { version = "4.5.0", features = ["derive"] }
+mac_address = "1.1.5"

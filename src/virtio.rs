@@ -10,11 +10,14 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use mac_address::MacAddress;
 
 extern "C" {
     fn krun_set_root_disk(ctx_id: u32, c_disk_path: *const c_char) -> i32;
     fn krun_add_vsock_port(ctx_id: u32, port: u32, c_filepath: *const c_char) -> i32;
     fn krun_add_virtiofs(ctx_id: u32, c_tag: *const c_char, c_path: *const c_char) -> i32;
+    fn krun_set_gvproxy_path(ctx_id: u32, c_path: *const c_char) -> i32;
+    fn krun_set_net_mac(ctx_id: u32, c_mac: *const u8) -> i32;
 }
 
 pub trait KrunContextSet {
@@ -65,7 +68,7 @@ impl KrunContextSet for VirtioDeviceConfig {
             Self::Rng => unimplemented!(),
             Self::Serial(_) => unimplemented!(),
             Self::Vsock(vsock) => vsock.krun_ctx_set(id),
-            Self::Net(_) => unimplemented!(),
+            Self::Net(net) => net.krun_ctx_set(id),
             Self::Fs(fs) => fs.krun_ctx_set(id),
         }
     }
@@ -183,7 +186,7 @@ impl FromStr for VsockAction {
 #[derive(Clone, Debug)]
 pub struct NetConfig {
     unix_socket_path: PathBuf,
-    mac_address: String,
+    mac_address: MacAddress,
 }
 
 impl FromStr for NetConfig {
@@ -195,8 +198,32 @@ impl FromStr for NetConfig {
         Ok(Self {
             unix_socket_path: PathBuf::from_str(&val_parse(args[0].clone(), "unixSocketPath")?)
                 .context("unixSocketPath argument not a valid path")?,
-            mac_address: val_parse(args[1].clone(), "mac")?,
+            mac_address: MacAddress::from_str(&val_parse(args[1].clone(), "mac")?)
+                .context("unable to parse mac address from argument")?,
         })
+    }
+}
+
+impl KrunContextSet for NetConfig {
+    unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
+        let path_cstr = path_to_cstring(&self.unix_socket_path)?.as_ptr() as *const c_char;
+        let mac = self.mac_address.bytes().as_ptr();
+
+        if krun_set_gvproxy_path(id, path_cstr) < 0 {
+            return Err(anyhow!(format!(
+                "unable to set gvproxy path {}",
+                &self.unix_socket_path.display()
+            )));
+        }
+
+        if krun_set_net_mac(id, mac) < 0 {
+            return Err(anyhow!(format!(
+                "unable to set net MAC address {}",
+                self.mac_address
+            )));
+        }
+
+        Ok(())
     }
 }
 
