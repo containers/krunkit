@@ -47,14 +47,16 @@ impl TryFrom<Args> for KrunContext {
             unsafe { device.krun_ctx_set(id)? }
         }
 
-        thread::spawn(move || unsafe { status_listener(id).unwrap() });
-
         Ok(Self { id, args })
     }
 }
 
 impl KrunContext {
     pub fn run(&self) -> Result<(), anyhow::Error> {
+        let id = self.id;
+
+        thread::spawn(move || unsafe { status_listener(id).unwrap() });
+
         if unsafe { krun_start_enter(self.id) } < 0 {
             return Err(anyhow!("unable to begin running krun workload"));
         }
