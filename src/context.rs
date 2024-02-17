@@ -11,6 +11,7 @@ use anyhow::anyhow;
 extern "C" {
     fn krun_create_ctx() -> i32;
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
+    fn krun_start_enter(ctx_id: u32) -> i32;
 }
 
 pub struct KrunContext {
@@ -49,5 +50,15 @@ impl TryFrom<Args> for KrunContext {
         thread::spawn(move || unsafe { status_listener(id).unwrap() });
 
         Ok(Self { id, args })
+    }
+}
+
+impl KrunContext {
+    pub fn run(&self) -> Result<(), anyhow::Error> {
+        if unsafe { krun_start_enter(self.id) } < 0 {
+            return Err(anyhow!("unable to begin running krun workload"));
+        }
+
+        Ok(())
     }
 }

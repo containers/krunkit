@@ -13,7 +13,9 @@ use context::KrunContext;
 use clap::Parser;
 
 fn main() -> Result<(), anyhow::Error> {
-    let _ctx = KrunContext::try_from(Args::parse())?;
+    let ctx = KrunContext::try_from(Args::parse())?;
+
+    ctx.run()?;
 
     Ok(())
 }
