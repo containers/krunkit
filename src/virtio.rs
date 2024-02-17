@@ -65,11 +65,10 @@ impl KrunContextSet for VirtioDeviceConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
         match self {
             Self::Blk(blk) => blk.krun_ctx_set(id),
-            Self::Rng => unimplemented!(),
-            Self::Serial(_) => unimplemented!(),
             Self::Vsock(vsock) => vsock.krun_ctx_set(id),
             Self::Net(net) => net.krun_ctx_set(id),
             Self::Fs(fs) => fs.krun_ctx_set(id),
+            _ => Ok(()),
         }
     }
 }
