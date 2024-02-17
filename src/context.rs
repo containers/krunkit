@@ -2,9 +2,9 @@
 
 use super::*;
 
-use crate::virtio::KrunContextSet;
+use crate::{status::status_listener, virtio::KrunContextSet};
 
-use std::convert::TryFrom;
+use std::{convert::TryFrom, thread};
 
 use anyhow::anyhow;
 
@@ -45,6 +45,8 @@ impl TryFrom<Args> for KrunContext {
         for device in &args.devices {
             unsafe { device.krun_ctx_set(id)? }
         }
+
+        thread::spawn(move || unsafe { status_listener(id).unwrap() });
 
         Ok(Self { id, args })
     }

@@ -4,6 +4,7 @@
 
 mod cmdline;
 mod context;
+mod status;
 mod virtio;
 
 use cmdline::Args;
