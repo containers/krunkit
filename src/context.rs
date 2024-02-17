@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
-use cmdline::device::*;
+
+use crate::virtio::KrunContextSet;
 
 use std::convert::TryFrom;
 

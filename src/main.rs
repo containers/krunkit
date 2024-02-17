@@ -4,6 +4,7 @@
 
 mod cmdline;
 mod context;
+mod virtio;
 
 use cmdline::Args;
 use context::KrunContext;
