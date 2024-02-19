@@ -7,21 +7,27 @@ use std::{path::PathBuf, str::FromStr};
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 
+/// Command line arguments to configure a krun VM.
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None)]
 pub struct Args {
+    /// Number of vCPUs for the VM.
     #[arg(long)]
     pub cpus: u8,
 
+    /// Amount of RAM available to VM.
     #[arg(long)]
     pub memory: u32,
 
+    /// Bootloader configuration.
     #[arg(long)]
     pub bootloader: bootloader::Config,
 
+    /// virtio devices to configure in the VM.
     #[arg(long = "device")]
     pub devices: Vec<VirtioDeviceConfig>,
 
+    /// URI of the status/shutdown listener.
     #[arg(long = "restful-uri")]
     pub restful_uri: String,
 }
