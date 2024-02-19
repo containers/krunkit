@@ -4,7 +4,7 @@ use std::{
     fs::File,
     io::{BufReader, Read, Write},
     net::{Ipv4Addr, TcpListener},
-    os::fd::FromRawFd,
+    os::fd::{FromRawFd, RawFd},
 };
 
 #[link(name = "krun-efi")]
@@ -18,13 +18,16 @@ const HTTP_RUNNING: &str =
 const HTTP_STOPPING: &str =
     "HTTP/1.1 200 OK\r\nContent-type: application/json\r\n\r\n{\"state\": \"VirtualMachineStateStopping\"}\0";
 
-pub unsafe fn status_listener(id: u32) -> Result<(), anyhow::Error> {
-    let fd = krun_get_shutdown_eventfd(id);
+pub unsafe fn get_shutdown_eventfd(ctx_id: u32) -> i32 {
+    let fd = krun_get_shutdown_eventfd(ctx_id);
     if fd < 0 {
         panic!("unable to retrieve krun shutdown file descriptor");
     }
+    fd
+}
 
-    let mut shutdown = File::from_raw_fd(fd);
+pub fn status_listener(shutdown_eventfd: RawFd) -> Result<(), anyhow::Error> {
+    let mut shutdown = unsafe { File::from_raw_fd(shutdown_eventfd) };
 
     let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 8081)).unwrap();
 

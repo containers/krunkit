@@ -2,7 +2,10 @@
 
 use super::*;
 
-use crate::{status::status_listener, virtio::KrunContextSet};
+use crate::{
+    status::{get_shutdown_eventfd, status_listener},
+    virtio::KrunContextSet,
+};
 
 use std::{convert::TryFrom, thread};
 
@@ -54,9 +57,9 @@ impl TryFrom<Args> for KrunContext {
 
 impl KrunContext {
     pub fn run(&self) -> Result<(), anyhow::Error> {
-        let id = self.id;
+        let shutdown_eventfd = unsafe { get_shutdown_eventfd(self.id) };
 
-        thread::spawn(move || unsafe { status_listener(id).unwrap() });
+        thread::spawn(move || status_listener(shutdown_eventfd).unwrap());
 
         if unsafe { krun_start_enter(self.id) } < 0 {
             return Err(anyhow!("unable to begin running krun workload"));
