@@ -8,7 +8,7 @@ use std::{convert::TryFrom, thread};
 
 use anyhow::anyhow;
 
-#[link(name = "krun")]
+#[link(name = "krun-efi")]
 extern "C" {
     fn krun_create_ctx() -> i32;
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
