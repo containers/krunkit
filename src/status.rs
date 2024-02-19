@@ -48,10 +48,8 @@ pub fn status_listener(shutdown_eventfd: RawFd) -> Result<(), anyhow::Error> {
                     if let Err(e) = shutdown.write_all(&1u64.to_le_bytes()) {
                         println!("Error writting to shutdown fd: {e}");
                     }
-                } else {
-                    if let Err(e) = stream.write_all(HTTP_STOPPING.as_bytes()) {
-                        println!("Error writting GET response: {e}");
-                    }
+                } else if let Err(e) = stream.write_all(HTTP_STOPPING.as_bytes()) {
+                    println!("Error writting GET response: {e}");
                 }
             }
             Err(e) => println!("Error reading stream: {}", e),
