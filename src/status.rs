@@ -42,13 +42,16 @@ pub fn status_listener(shutdown_eventfd: RawFd) -> Result<(), anyhow::Error> {
             Ok(_sz) => {
                 let request = String::from_utf8_lossy(&buf);
                 if request.contains("POST") {
-                    if let Err(e) = stream.write_all(HTTP_RUNNING.as_bytes()) {
+                    // Send a VirtualMachineStateStopping message to the client.
+                    if let Err(e) = stream.write_all(HTTP_STOPPING.as_bytes()) {
                         println!("Error writting POST response: {e}");
                     }
+
+                    // Shut down the VM.
                     if let Err(e) = shutdown.write_all(&1u64.to_le_bytes()) {
                         println!("Error writting to shutdown fd: {e}");
                     }
-                } else if let Err(e) = stream.write_all(HTTP_STOPPING.as_bytes()) {
+                } else if let Err(e) = stream.write_all(HTTP_RUNNING.as_bytes()) {
                     println!("Error writting GET response: {e}");
                 }
             }
