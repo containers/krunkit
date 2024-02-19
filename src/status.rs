@@ -2,7 +2,7 @@
 
 use std::{
     fs::File,
-    io::{BufReader, Read, Write},
+    io::{Read, Write},
     net::{Ipv4Addr, TcpListener},
     os::fd::{FromRawFd, RawFd},
 };
@@ -32,18 +32,26 @@ pub fn status_listener(shutdown_eventfd: RawFd) -> Result<(), anyhow::Error> {
     let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 8081)).unwrap();
 
     for stream in listener.incoming() {
+        let mut buf = [0u8; 4096];
         let mut stream = stream.unwrap();
-        let mut reader = BufReader::new(&mut stream);
-        let mut request = String::new();
 
-        reader.read_to_string(&mut request).unwrap();
-        if request.contains("POST") {
-            stream.write_all(HTTP_RUNNING.as_bytes()).unwrap();
-        } else {
-            stream.write_all(HTTP_STOPPING.as_bytes()).unwrap();
-            shutdown.write_all(&request.as_bytes()[..8]).unwrap();
-
-            break;
+        match stream.read(&mut buf) {
+            Ok(_) => {
+                let request = String::from_utf8_lossy(&buf);
+                if request.contains("POST") {
+                    if let Err(e) = stream.write_all(HTTP_RUNNING.as_bytes()) {
+                        println!("Error writting POST response: {e}");
+                    }
+                    if let Err(e) = shutdown.write_all(&1u64.to_le_bytes()) {
+                        println!("Error writting to shutdown fd: {e}");
+                    }
+                } else {
+                    if let Err(e) = stream.write_all(HTTP_STOPPING.as_bytes()) {
+                        println!("Error writting GET response: {e}");
+                    }
+                }
+            }
+            Err(e) => println!("Error reading stream: {}", e),
         }
     }
 
