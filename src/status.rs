@@ -18,6 +18,7 @@ const HTTP_RUNNING: &str =
 const HTTP_STOPPING: &str =
     "HTTP/1.1 200 OK\r\nContent-type: application/json\r\n\r\n{\"state\": \"VirtualMachineStateStopping\"}\0";
 
+/// Retrieve the shutdown event file descriptor initialized by libkrun.
 pub unsafe fn get_shutdown_eventfd(ctx_id: u32) -> i32 {
     let fd = krun_get_shutdown_eventfd(ctx_id);
     if fd < 0 {
@@ -26,7 +27,9 @@ pub unsafe fn get_shutdown_eventfd(ctx_id: u32) -> i32 {
     fd
 }
 
+/// Listen for status and shutdown requests from the client. Shut down the krun VM when prompted.
 pub fn status_listener(shutdown_eventfd: RawFd) -> Result<(), anyhow::Error> {
+    // VM is shut down by writing to the shutdown event file.
     let mut shutdown = unsafe { File::from_raw_fd(shutdown_eventfd) };
 
     let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 8081)).unwrap();

@@ -21,10 +21,13 @@ extern "C" {
     fn krun_set_net_mac(ctx_id: u32, c_mac: *const u8) -> i32;
 }
 
+/// Each virito device configures itself with krun differently. This is used by each virtio device
+/// to set their respective configurations with libkrun.
 pub trait KrunContextSet {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error>;
 }
 
+/// virtio device configurations.
 #[derive(Clone, Debug)]
 pub enum VirtioDeviceConfig {
     Blk(BlkConfig),
@@ -35,6 +38,7 @@ pub enum VirtioDeviceConfig {
     Fs(FsConfig),
 }
 
+/// Parse a virtio device configuration with its respective information/data.
 impl FromStr for VirtioDeviceConfig {
     type Err = anyhow::Error;
 
@@ -45,6 +49,8 @@ impl FromStr for VirtioDeviceConfig {
             return Err(anyhow!("no virtio device config found"));
         }
 
+        // The first string is the virtio device identifier. Subsequent arguments are
+        // device-specific.
         let rest = args[1..].join(",");
 
         match &args[0][..] {
@@ -62,6 +68,7 @@ impl FromStr for VirtioDeviceConfig {
     }
 }
 
+/// Configure the device in the krun context based on which underlying device is contained.
 impl KrunContextSet for VirtioDeviceConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
         match self {
@@ -69,13 +76,17 @@ impl KrunContextSet for VirtioDeviceConfig {
             Self::Vsock(vsock) => vsock.krun_ctx_set(id),
             Self::Net(net) => net.krun_ctx_set(id),
             Self::Fs(fs) => fs.krun_ctx_set(id),
+
+            // virtio-rng and virtio-serial devices are currently not configured in krun.
             _ => Ok(()),
         }
     }
 }
 
+/// Configuration of a virtio-blk device.
 #[derive(Clone, Debug)]
 pub struct BlkConfig {
+    /// Path of the file to store as the root disk.
     path: PathBuf,
 }
 
@@ -92,6 +103,7 @@ impl FromStr for BlkConfig {
     }
 }
 
+/// Set the virtio-blk device to be the krun VM's root disk.
 impl KrunContextSet for BlkConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
         let path_cstr = path_to_cstring(&self.path)?;
@@ -104,8 +116,10 @@ impl KrunContextSet for BlkConfig {
     }
 }
 
+/// Configuration of a virtio-serial device.
 #[derive(Clone, Debug)]
 pub struct SerialConfig {
+    /// Path of a file to use as the device's log.
     log_file_path: PathBuf,
 }
 
@@ -122,10 +136,16 @@ impl FromStr for SerialConfig {
     }
 }
 
+/// Configuration of a virtio-vsock device.
 #[derive(Clone, Debug)]
 pub struct VsockConfig {
+    /// Port to connect to on VM.
     port: u32,
+
+    /// Path of underlying socket.
     socket_url: PathBuf,
+
+    /// Action of socket.
     action: VsockAction,
 }
 
@@ -149,6 +169,8 @@ impl FromStr for VsockConfig {
     }
 }
 
+/// Map the virtio-vsock's guest port and host path to enable the krun VM to communicate with the
+/// socket on the host.
 impl KrunContextSet for VsockConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
         let path_cstr = path_to_cstring(&self.socket_url)?;
@@ -165,6 +187,7 @@ impl KrunContextSet for VsockConfig {
     }
 }
 
+/// virtio-vsock action.
 #[derive(Clone, Debug)]
 pub enum VsockAction {
     Listen,
@@ -183,9 +206,13 @@ impl FromStr for VsockAction {
     }
 }
 
+/// Configuration of a virtio-net device.
 #[derive(Clone, Debug)]
 pub struct NetConfig {
+    /// Path to underlying gvproxy socket.
     unix_socket_path: PathBuf,
+
+    /// Network MAC address.
     mac_address: MacAddress,
 }
 
@@ -204,6 +231,7 @@ impl FromStr for NetConfig {
     }
 }
 
+/// Set the gvproxy's path and network MAC address.
 impl KrunContextSet for NetConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
         let path_cstr = path_to_cstring(&self.unix_socket_path)?;
@@ -227,9 +255,13 @@ impl KrunContextSet for NetConfig {
     }
 }
 
+/// Configuration of a virtio-fs device.
 #[derive(Clone, Debug)]
 pub struct FsConfig {
+    /// Shared directory with the host.
     shared_dir: PathBuf,
+
+    /// Guest mount tag for shared directory.
     mount_tag: PathBuf,
 }
 
@@ -258,6 +290,7 @@ impl FromStr for FsConfig {
     }
 }
 
+/// Set the shared directory with its guest mount tag.
 impl KrunContextSet for FsConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
         let shared_dir_cstr = path_to_cstring(&self.shared_dir)?;
@@ -275,6 +308,7 @@ impl KrunContextSet for FsConfig {
     }
 }
 
+/// Construct a NULL-terminated C string from a Rust Path object.
 fn path_to_cstring(path: &Path) -> Result<CString, anyhow::Error> {
     let cstring = CString::new(path.as_os_str().as_bytes()).context(format!(
         "unable to convert path {} into NULL-terminated C string",

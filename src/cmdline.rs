@@ -26,9 +26,11 @@ pub struct Args {
     pub restful_uri: String,
 }
 
+/// Parse a string into a vector of substrings, all of which are separated by commas.
 pub fn args_parse(s: String, label: &str, sz: Option<usize>) -> Result<Vec<String>> {
     let list: Vec<String> = s.split(',').map(|s| s.to_string()).collect();
 
+    // If an expected size is given, ensure that the parsed vector is of the expected size.
     if let Some(size) = sz {
         if list.len() != size {
             return Err(anyhow!(
@@ -43,12 +45,16 @@ pub fn args_parse(s: String, label: &str, sz: Option<usize>) -> Result<Vec<Strin
     Ok(list)
 }
 
+/// Parse the value of some expected label, in which the two are separated by an '=' character.
+///
+/// For example, if a string is hello=world, "hello" is the label and "world" is the value.
 pub fn val_parse(s: String, label: &str) -> Result<String> {
     let vals: Vec<&str> = s.split('=').collect();
 
     match vals.len() {
         1 => Ok(vals[0].to_string()),
         2 => {
+            // Ensure that the label is as expected.
             let label_found = vals[0];
             if label_found != label {
                 return Err(anyhow!(format!(
@@ -63,6 +69,7 @@ pub fn val_parse(s: String, label: &str) -> Result<String> {
     }
 }
 
+/// A wrapper of all data associated with the bootloader argument.
 mod bootloader {
     use super::*;
 
@@ -91,6 +98,7 @@ mod bootloader {
         }
     }
 
+    /// Bootloader firmware identifier.
     #[derive(Clone, Debug)]
     pub enum BootloaderFw {
         Efi,
@@ -109,6 +117,7 @@ mod bootloader {
         }
     }
 
+    /// Variable store.
     #[derive(Clone, Debug)]
     pub struct Vstore(PathBuf);
 
@@ -124,6 +133,7 @@ mod bootloader {
         }
     }
 
+    /// Bootloader action.
     #[derive(Clone, Debug)]
     pub enum Action {
         Create,
