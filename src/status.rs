@@ -39,7 +39,7 @@ pub fn status_listener(shutdown_eventfd: RawFd) -> Result<(), anyhow::Error> {
         let mut stream = stream.unwrap();
 
         match stream.read(&mut buf) {
-            Ok(_) => {
+            Ok(_sz) => {
                 let request = String::from_utf8_lossy(&buf);
                 if request.contains("POST") {
                     if let Err(e) = stream.write_all(HTTP_RUNNING.as_bytes()) {
