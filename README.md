@@ -11,4 +11,8 @@ $ brew tap slp/krunkit
 $ brew install krunkit
 ```
 
+## Usage
+
+See [`docs/usage.md`](./docs/usage.md).
+
 License: Apache-2.0
