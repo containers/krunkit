@@ -94,9 +94,9 @@ impl FromStr for BlkConfig {
 
 impl KrunContextSet for BlkConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
-        let path_cstr = path_to_cstring(&self.path)?.as_ptr() as *const c_char;
+        let path_cstr = path_to_cstring(&self.path)?;
 
-        if krun_set_root_disk(id, path_cstr) < 0 {
+        if krun_set_root_disk(id, path_cstr.as_ptr()) < 0 {
             return Err(anyhow!("unable to set virtio-blk root disk"));
         }
 
@@ -151,9 +151,9 @@ impl FromStr for VsockConfig {
 
 impl KrunContextSet for VsockConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
-        let path_cstr = path_to_cstring(&self.socket_url)?.as_ptr() as *const c_char;
+        let path_cstr = path_to_cstring(&self.socket_url)?;
 
-        if krun_add_vsock_port(id, self.port, path_cstr) < 0 {
+        if krun_add_vsock_port(id, self.port, path_cstr.as_ptr()) < 0 {
             return Err(anyhow!(format!(
                 "unable to add vsock port {} for path {}",
                 self.port,
@@ -206,17 +206,17 @@ impl FromStr for NetConfig {
 
 impl KrunContextSet for NetConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
-        let path_cstr = path_to_cstring(&self.unix_socket_path)?.as_ptr() as *const c_char;
-        let mac = self.mac_address.bytes().as_ptr();
+        let path_cstr = path_to_cstring(&self.unix_socket_path)?;
+        let mac = self.mac_address.bytes();
 
-        if krun_set_gvproxy_path(id, path_cstr) < 0 {
+        if krun_set_gvproxy_path(id, path_cstr.as_ptr()) < 0 {
             return Err(anyhow!(format!(
                 "unable to set gvproxy path {}",
                 &self.unix_socket_path.display()
             )));
         }
 
-        if krun_set_net_mac(id, mac) < 0 {
+        if krun_set_net_mac(id, mac.as_ptr()) < 0 {
             return Err(anyhow!(format!(
                 "unable to set net MAC address {}",
                 self.mac_address
@@ -260,10 +260,10 @@ impl FromStr for FsConfig {
 
 impl KrunContextSet for FsConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
-        let shared_dir_cstr = path_to_cstring(&self.shared_dir)?.as_ptr() as *const c_char;
-        let mount_tag_cstr = path_to_cstring(&self.mount_tag)?.as_ptr() as *const c_char;
+        let shared_dir_cstr = path_to_cstring(&self.shared_dir)?;
+        let mount_tag_cstr = path_to_cstring(&self.mount_tag)?;
 
-        if krun_add_virtiofs(id, mount_tag_cstr, shared_dir_cstr) < 0 {
+        if krun_add_virtiofs(id, mount_tag_cstr.as_ptr(), shared_dir_cstr.as_ptr()) < 0 {
             return Err(anyhow!(format!(
                 "unable to add virtiofs shared directory {} with mount tag {}",
                 &self.shared_dir.display(),
