@@ -158,3 +158,141 @@ mod bootloader {
         }
     }
 }
+
+mod tests {
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn mac_cmdline_ordering_argtest() {
+        use super::*;
+        use crate::virtio::*;
+
+        use mac_address::MacAddress;
+
+        let cmdline = vec![
+            "krunkit",
+            "--cpus",
+            "4",
+            "--memory",
+            "2048",
+            "--bootloader",
+            "efi,variable-store=/Users/user/bootloader,create",
+            "--device",
+            "virtio-blk,path=/Users/user/root.raw",
+            "--device",
+            "virtio-rng",
+            "--device",
+            "virtio-serial,logFilePath=/Users/user/serial.log",
+            "--device",
+            "virtio-blk,path=/Users/user/data.raw",
+            "--device",
+            "virtio-vsock,port=1024,socketURL=/Users/user/vsock1.sock,listen",
+            "--device",
+            "virtio-net,unixSocketPath=/Users/user/net.sock,mac=00:00:00:00:00:00",
+            "--device",
+            "virtio-fs,sharedDir=/Users/user/fs,mountTag=guest-dir",
+            "--device",
+            "virtio-vsock,port=1025,socketURL=/Users/user/vsock2.sock,listen",
+            "--restful-uri",
+            "tcp://localhost:49573",
+        ];
+
+        let mut args = Args::try_parse_from(cmdline).unwrap();
+
+        let vsock = args
+            .devices
+            .pop()
+            .expect("expected 8th virtio device config");
+        if let VirtioDeviceConfig::Vsock(v) = vsock {
+            assert_eq!(v.port, 1025);
+            assert_eq!(
+                v.socket_url,
+                PathBuf::from_str("/Users/user/vsock2.sock").unwrap()
+            );
+            assert_eq!(v.action, VsockAction::Listen);
+        } else {
+            panic!("expected virtio-vsock device as 8th device config argument");
+        }
+
+        let fs = args
+            .devices
+            .pop()
+            .expect("expected 7th virtio device config");
+        if let VirtioDeviceConfig::Fs(fs) = fs {
+            assert_eq!(fs.shared_dir, PathBuf::from_str("/Users/user/fs").unwrap());
+            assert_eq!(fs.mount_tag, PathBuf::from_str("guest-dir").unwrap());
+        } else {
+            panic!("expected virtio-fs device as 7th device config argument");
+        }
+
+        let net = args
+            .devices
+            .pop()
+            .expect("expected 6th virtio device config");
+        if let VirtioDeviceConfig::Net(net) = net {
+            assert_eq!(
+                net.unix_socket_path,
+                PathBuf::from_str("/Users/user/net.sock").unwrap()
+            );
+            assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
+        } else {
+            panic!("expected virtio-net device as 6th device config argument");
+        }
+
+        let vsock = args
+            .devices
+            .pop()
+            .expect("expected 5th virtio device config");
+        if let VirtioDeviceConfig::Vsock(v) = vsock {
+            assert_eq!(v.port, 1024);
+            assert_eq!(
+                v.socket_url,
+                PathBuf::from_str("/Users/user/vsock1.sock").unwrap()
+            );
+            assert_eq!(v.action, VsockAction::Listen);
+        } else {
+            panic!("expected virtio-vsock device as 5th device config argument");
+        }
+
+        let blk = args
+            .devices
+            .pop()
+            .expect("expected 4th virtio device config");
+        if let VirtioDeviceConfig::Blk(blk) = blk {
+            assert_eq!(blk.path, PathBuf::from_str("/Users/user/data.raw").unwrap());
+        } else {
+            panic!("expected virtio-blk device as 4th device config argument");
+        }
+
+        let serial = args
+            .devices
+            .pop()
+            .expect("expected 3rd virtio device config");
+        if let VirtioDeviceConfig::Serial(serial) = serial {
+            assert_eq!(
+                serial.log_file_path,
+                PathBuf::from_str("/Users/user/serial.log").unwrap()
+            );
+        } else {
+            panic!("expected virtio-serial device as 3rd device config argument");
+        }
+
+        let rng = args
+            .devices
+            .pop()
+            .expect("expected 2nd virtio device config");
+
+        if VirtioDeviceConfig::Rng != rng {
+            panic!("expected virtio-rng device as 2nd device config argument");
+        }
+
+        let blk = args
+            .devices
+            .pop()
+            .expect("expected 1st virtio device config");
+        if let VirtioDeviceConfig::Blk(blk) = blk {
+            assert_eq!(blk.path, PathBuf::from_str("/Users/user/root.raw").unwrap());
+        } else {
+            panic!("expected virtio-blk device as 1st device config argument");
+        }
+    }
+}
