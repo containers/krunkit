@@ -5,7 +5,11 @@ use std::{
     io::{Read, Write},
     net::{Ipv4Addr, TcpListener},
     os::fd::{FromRawFd, RawFd},
+    str::FromStr,
 };
+
+use anyhow::{anyhow, Context};
+use clap::Parser;
 
 #[link(name = "krun-efi")]
 extern "C" {
@@ -18,6 +22,45 @@ const HTTP_RUNNING: &str =
 const HTTP_STOPPING: &str =
     "HTTP/1.1 200 OK\r\nContent-type: application/json\r\n\r\n{\"state\": \"VirtualMachineStateStopping\"}\0";
 
+/// Socket address in which the restful URI socket should listen on. Identical to Rust's
+/// SocketAddrV4, but requires a modified FromStr implementation due to how the address is
+/// presented on the command line.
+#[derive(Clone, Debug, Parser)]
+pub struct RestfulUriAddr {
+    pub ip_addr: Ipv4Addr,
+    pub port: u16,
+}
+
+impl FromStr for RestfulUriAddr {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut string = String::from(s);
+
+        if let Some(removed) = string.strip_prefix("tcp://") {
+            string = String::from(removed);
+        }
+
+        let mut parts: Vec<String> = string.split(':').map(|s| s.to_string()).collect();
+        if parts.len() != 2 {
+            return Err(anyhow!("restful URI formatted incorrectly"));
+        }
+
+        // Ipv4Address's FromStr does not understand that the "localhost" IP address translates to
+        // 127.0.0.1, this must be manually translated.
+        if &parts[0][..] == "localhost" {
+            parts[0] = String::from("127.0.0.1");
+        }
+
+        let ip_addr = Ipv4Addr::from_str(&parts[0])
+            .context("restful URI IP address formatted incorrectly")?;
+        let port =
+            u16::from_str(&parts[1]).context("restful URI port number formatted incorrectly")?;
+
+        Ok(Self { ip_addr, port })
+    }
+}
+
 /// Retrieve the shutdown event file descriptor initialized by libkrun.
 pub unsafe fn get_shutdown_eventfd(ctx_id: u32) -> i32 {
     let fd = krun_get_shutdown_eventfd(ctx_id);
@@ -28,11 +71,11 @@ pub unsafe fn get_shutdown_eventfd(ctx_id: u32) -> i32 {
 }
 
 /// Listen for status and shutdown requests from the client. Shut down the krun VM when prompted.
-pub fn status_listener(shutdown_eventfd: RawFd) -> Result<(), anyhow::Error> {
+pub fn status_listener(shutdown_eventfd: RawFd, addr: RestfulUriAddr) -> Result<(), anyhow::Error> {
     // VM is shut down by writing to the shutdown event file.
     let mut shutdown = unsafe { File::from_raw_fd(shutdown_eventfd) };
 
-    let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 8081)).unwrap();
+    let listener = TcpListener::bind((addr.ip_addr, addr.port)).unwrap();
 
     for stream in listener.incoming() {
         let mut buf = [0u8; 4096];
