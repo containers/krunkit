@@ -91,7 +91,7 @@ impl KrunContextSet for VirtioDeviceConfig {
 #[derive(Clone, Debug)]
 pub struct BlkConfig {
     /// Path of the file to store as the root disk.
-    path: PathBuf,
+    pub path: PathBuf,
 }
 
 impl FromStr for BlkConfig {
@@ -136,7 +136,7 @@ impl KrunContextSet for BlkConfig {
 #[derive(Clone, Debug)]
 pub struct SerialConfig {
     /// Path of a file to use as the device's log.
-    log_file_path: PathBuf,
+    pub log_file_path: PathBuf,
 }
 
 impl FromStr for SerialConfig {
@@ -156,13 +156,13 @@ impl FromStr for SerialConfig {
 #[derive(Clone, Debug)]
 pub struct VsockConfig {
     /// Port to connect to on VM.
-    port: u32,
+    pub port: u32,
 
     /// Path of underlying socket.
-    socket_url: PathBuf,
+    pub socket_url: PathBuf,
 
     /// Action of socket.
-    action: VsockAction,
+    pub action: VsockAction,
 }
 
 impl FromStr for VsockConfig {
@@ -226,10 +226,10 @@ impl FromStr for VsockAction {
 #[derive(Clone, Debug)]
 pub struct NetConfig {
     /// Path to underlying gvproxy socket.
-    unix_socket_path: PathBuf,
+    pub unix_socket_path: PathBuf,
 
     /// Network MAC address.
-    mac_address: MacAddress,
+    pub mac_address: MacAddress,
 }
 
 impl FromStr for NetConfig {
@@ -275,10 +275,10 @@ impl KrunContextSet for NetConfig {
 #[derive(Clone, Debug)]
 pub struct FsConfig {
     /// Shared directory with the host.
-    shared_dir: PathBuf,
+    pub shared_dir: PathBuf,
 
     /// Guest mount tag for shared directory.
-    mount_tag: PathBuf,
+    pub mount_tag: PathBuf,
 }
 
 impl FromStr for FsConfig {
