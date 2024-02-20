@@ -32,7 +32,7 @@ pub trait KrunContextSet {
 }
 
 /// virtio device configurations.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum VirtioDeviceConfig {
     Blk(BlkConfig),
     Rng,
@@ -88,7 +88,7 @@ impl KrunContextSet for VirtioDeviceConfig {
 }
 
 /// Configuration of a virtio-blk device.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BlkConfig {
     /// Path of the file to store as the root disk.
     pub path: PathBuf,
@@ -133,7 +133,7 @@ impl KrunContextSet for BlkConfig {
 }
 
 /// Configuration of a virtio-serial device.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SerialConfig {
     /// Path of a file to use as the device's log.
     pub log_file_path: PathBuf,
@@ -153,7 +153,7 @@ impl FromStr for SerialConfig {
 }
 
 /// Configuration of a virtio-vsock device.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VsockConfig {
     /// Port to connect to on VM.
     pub port: u32,
@@ -204,7 +204,7 @@ impl KrunContextSet for VsockConfig {
 }
 
 /// virtio-vsock action.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum VsockAction {
     Listen,
 }
@@ -223,7 +223,7 @@ impl FromStr for VsockAction {
 }
 
 /// Configuration of a virtio-net device.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NetConfig {
     /// Path to underlying gvproxy socket.
     pub unix_socket_path: PathBuf,
@@ -272,7 +272,7 @@ impl KrunContextSet for NetConfig {
 }
 
 /// Configuration of a virtio-fs device.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FsConfig {
     /// Shared directory with the host.
     pub shared_dir: PathBuf,
