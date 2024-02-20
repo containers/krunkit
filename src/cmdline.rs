@@ -21,7 +21,7 @@ pub struct Args {
 
     /// Bootloader configuration.
     #[arg(long)]
-    pub bootloader: bootloader::Config,
+    pub bootloader: Option<bootloader::Config>,
 
     /// virtio devices to configure in the VM.
     #[arg(long = "device")]
