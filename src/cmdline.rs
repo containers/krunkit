@@ -30,6 +30,10 @@ pub struct Args {
     /// URI of the status/shutdown listener.
     #[arg(long = "restful-uri")]
     pub restful_uri: RestfulUriAddr,
+
+    /// Level for message logs.
+    #[arg(long = "log-level")]
+    pub log_level: Option<LogLevel>,
 }
 
 /// Parse a string into a vector of substrings, all of which are separated by commas.
@@ -72,6 +76,23 @@ pub fn val_parse(s: String, label: &str) -> Result<String> {
             Ok(vals[1].to_string())
         }
         _ => Err(anyhow!(format!("invalid argument format: {}", s.clone()))),
+    }
+}
+
+/// Level for message logs.
+#[derive(Clone, Debug, Parser, PartialEq)]
+pub enum LogLevel {
+    Debug,
+}
+
+impl FromStr for LogLevel {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "debug" => Ok(Self::Debug),
+            _ => Err(anyhow!("invalid log level")),
+        }
     }
 }
 
@@ -196,6 +217,8 @@ mod tests {
             "virtio-vsock,port=1025,socketURL=/Users/user/vsock2.sock,listen",
             "--restful-uri",
             "tcp://localhost:49573",
+            "--log-level",
+            "debug",
         ];
 
         let mut args = Args::try_parse_from(cmdline).unwrap();
@@ -299,5 +322,7 @@ mod tests {
 
         assert_eq!(args.restful_uri.ip_addr, Ipv4Addr::new(127, 0, 0, 1));
         assert_eq!(args.restful_uri.port, 49573);
+
+        assert_eq!(args.log_level, Some(LogLevel::Debug));
     }
 }
