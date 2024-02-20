@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::virtio::VirtioDeviceConfig;
+use crate::{status::RestfulUriAddr, virtio::VirtioDeviceConfig};
 
 use std::{path::PathBuf, str::FromStr};
 
@@ -29,7 +29,7 @@ pub struct Args {
 
     /// URI of the status/shutdown listener.
     #[arg(long = "restful-uri")]
-    pub restful_uri: String,
+    pub restful_uri: RestfulUriAddr,
 }
 
 /// Parse a string into a vector of substrings, all of which are separated by commas.
@@ -166,6 +166,8 @@ mod tests {
         use super::*;
         use crate::virtio::*;
 
+        use std::net::Ipv4Addr;
+
         use mac_address::MacAddress;
 
         let cmdline = vec![
@@ -294,5 +296,8 @@ mod tests {
         } else {
             panic!("expected virtio-blk device as 1st device config argument");
         }
+
+        assert_eq!(args.restful_uri.ip_addr, Ipv4Addr::new(127, 0, 0, 1));
+        assert_eq!(args.restful_uri.port, 49573);
     }
 }

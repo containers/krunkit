@@ -67,8 +67,9 @@ impl KrunContext {
     pub fn run(&self) -> Result<(), anyhow::Error> {
         // Get the krun shutdown file descriptor and listen to shutdown requests on a new thread.
         let shutdown_eventfd = unsafe { get_shutdown_eventfd(self.id) };
+        let uri = self.args.restful_uri.clone();
 
-        thread::spawn(move || status_listener(shutdown_eventfd).unwrap());
+        thread::spawn(move || status_listener(shutdown_eventfd, uri).unwrap());
 
         // Run the workload.
         if unsafe { krun_start_enter(self.id) } < 0 {
