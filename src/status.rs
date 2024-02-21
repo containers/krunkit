@@ -61,6 +61,15 @@ impl FromStr for RestfulUriAddr {
     }
 }
 
+impl Default for RestfulUriAddr {
+    fn default() -> Self {
+        Self {
+            ip_addr: Ipv4Addr::new(127, 0, 0, 1),
+            port: 8081,
+        }
+    }
+}
+
 /// Retrieve the shutdown event file descriptor initialized by libkrun.
 pub unsafe fn get_shutdown_eventfd(ctx_id: u32) -> i32 {
     let fd = krun_get_shutdown_eventfd(ctx_id);
@@ -71,9 +80,14 @@ pub unsafe fn get_shutdown_eventfd(ctx_id: u32) -> i32 {
 }
 
 /// Listen for status and shutdown requests from the client. Shut down the krun VM when prompted.
-pub fn status_listener(shutdown_eventfd: RawFd, addr: RestfulUriAddr) -> Result<(), anyhow::Error> {
+pub fn status_listener(
+    shutdown_eventfd: RawFd,
+    addr: Option<RestfulUriAddr>,
+) -> Result<(), anyhow::Error> {
     // VM is shut down by writing to the shutdown event file.
     let mut shutdown = unsafe { File::from_raw_fd(shutdown_eventfd) };
+
+    let addr = addr.unwrap_or_default();
 
     let listener = TcpListener::bind((addr.ip_addr, addr.port)).unwrap();
 
