@@ -196,11 +196,23 @@ mod tests {
             "virtio-vsock,port=1025,socketURL=/Users/user/vsock2.sock,listen",
             "--device",
             "virtio-gpu,width=800,height=600",
+            "--device",
+            "virtio-input,keyboard",
             "--restful-uri",
             "tcp://localhost:49573",
         ];
 
         let mut args = Args::try_parse_from(cmdline).unwrap();
+
+        let input = args
+            .devices
+            .pop()
+            .expect("expected 10th virtio device config");
+        if let VirtioDeviceConfig::Input(input) = input {
+            assert_eq!(input, InputConfig::Keyboard);
+        } else {
+            panic!("expected virtio-input device as 10th device config argument");
+        }
 
         let gpu = args
             .devices
