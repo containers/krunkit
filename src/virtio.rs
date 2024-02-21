@@ -20,6 +20,7 @@ extern "C" {
     fn krun_add_virtiofs(ctx_id: u32, c_tag: *const c_char, c_path: *const c_char) -> i32;
     fn krun_set_gvproxy_path(ctx_id: u32, c_path: *const c_char) -> i32;
     fn krun_set_net_mac(ctx_id: u32, c_mac: *const u8) -> i32;
+    fn krun_set_console_output(ctx_id: u32, c_filepath: *const c_char) -> i32;
 }
 
 static mut ROOT_BLK_SET: bool = false;
@@ -84,9 +85,10 @@ impl KrunContextSet for VirtioDeviceConfig {
             Self::Vsock(vsock) => vsock.krun_ctx_set(id),
             Self::Net(net) => net.krun_ctx_set(id),
             Self::Fs(fs) => fs.krun_ctx_set(id),
+            Self::Serial(serial) => serial.krun_ctx_set(id),
 
-            // virtio-input, virtio-gpu, virtio-rng and virtio-serial devices are
-            // currently not configured in krun.
+            // virtio-input, virtio-gpu, and virtio-rng devices are currently not configured in
+            // krun.
             _ => Ok(()),
         }
     }
@@ -154,6 +156,21 @@ impl FromStr for SerialConfig {
             log_file_path: PathBuf::from_str(&val_parse(args[0].clone(), "logFilePath")?)
                 .context("logFilePath argument not a valid path")?,
         })
+    }
+}
+
+/// Set the krun console output to be written to the virtio-serial's log file.
+impl KrunContextSet for SerialConfig {
+    unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
+        let path_cstr = path_to_cstring(&self.log_file_path)?;
+
+        if krun_set_console_output(id, path_cstr.as_ptr()) < 0 {
+            return Err(anyhow!(
+                "unable to set krun console output redirection to virtio-serial log file"
+            ));
+        }
+
+        Ok(())
     }
 }
 
