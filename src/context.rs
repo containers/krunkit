@@ -14,9 +14,13 @@ use anyhow::anyhow;
 #[link(name = "krun-efi")]
 extern "C" {
     fn krun_create_ctx() -> i32;
+    fn krun_set_gpu_options(ctx_id: u32, virgl_flags: u32) -> i32;
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
     fn krun_start_enter(ctx_id: u32) -> i32;
 }
+
+const VIRGLRENDERER_VENUS: u32 = 1 << 6;
+const VIRGLRENDERER_NO_VIRGL: u32 = 1 << 7;
 
 /// A wrapper of all data used to configure the krun VM.
 pub struct KrunContext {
@@ -49,6 +53,12 @@ impl TryFrom<Args> for KrunContext {
         }
 
         if unsafe { krun_set_vm_config(id, args.cpus, args.memory) } < 0 {
+            return Err(anyhow!("unable to set krun vCPU/RAM configuration"));
+        }
+
+        // Temporarily enable GPU by default
+        let virgl_flags = VIRGLRENDERER_VENUS | VIRGLRENDERER_NO_VIRGL;
+        if unsafe { krun_set_gpu_options(id, virgl_flags) } < 0 {
             return Err(anyhow!("unable to set krun vCPU/RAM configuration"));
         }
 
