@@ -29,7 +29,7 @@ pub struct Args {
 
     /// URI of the status/shutdown listener.
     #[arg(long = "restful-uri")]
-    pub restful_uri: RestfulUriAddr,
+    pub restful_uri: Option<RestfulUriAddr>,
 
     /// Level for message logs.
     #[arg(long = "log-level")]
@@ -345,8 +345,10 @@ mod tests {
             panic!("expected virtio-blk device as 1st device config argument");
         }
 
-        assert_eq!(args.restful_uri.ip_addr, Ipv4Addr::new(127, 0, 0, 1));
-        assert_eq!(args.restful_uri.port, 49573);
+        let restful_uri = args.restful_uri.expect("restful-uri argument not found");
+
+        assert_eq!(restful_uri.ip_addr, Ipv4Addr::new(127, 0, 0, 1));
+        assert_eq!(restful_uri.port, 49573);
 
         assert_eq!(args.log_level, Some(LogLevel::Debug));
     }
