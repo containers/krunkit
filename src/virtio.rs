@@ -41,6 +41,7 @@ pub enum VirtioDeviceConfig {
     Net(NetConfig),
     Fs(FsConfig),
     Gpu(GpuConfig),
+    Input(InputConfig),
 }
 
 /// Parse a virtio device configuration with its respective information/data.
@@ -66,6 +67,7 @@ impl FromStr for VirtioDeviceConfig {
             "virtio-net" => Ok(Self::Net(NetConfig::from_str(&rest)?)),
             "virtio-fs" => Ok(Self::Fs(FsConfig::from_str(&rest)?)),
             "virtio-gpu" => Ok(Self::Gpu(GpuConfig::from_str(&rest)?)),
+            "virtio-input" => Ok(Self::Input(InputConfig::from_str(&rest)?)),
             _ => Err(anyhow!(format!(
                 "invalid virtio device label specified: {}",
                 args[0]
@@ -83,8 +85,8 @@ impl KrunContextSet for VirtioDeviceConfig {
             Self::Net(net) => net.krun_ctx_set(id),
             Self::Fs(fs) => fs.krun_ctx_set(id),
 
-            // virtio-gpu, virtio-rng and virtio-serial devices are currently
-            // not configured in krun.
+            // virtio-input, virtio-gpu, virtio-rng and virtio-serial devices are
+            // currently not configured in krun.
             _ => Ok(()),
         }
     }
@@ -349,6 +351,28 @@ impl FromStr for GpuConfig {
             .context("GPU height argument not a valid u32")?;
 
         Ok(Self { width, height })
+    }
+}
+
+/// Configuration of a virtio-input device. This is an enum indicating which virtio-input device a
+/// user would like to include with the VM.
+#[derive(Clone, Debug, PartialEq)]
+pub enum InputConfig {
+    Keyboard,
+    Pointing,
+}
+
+impl FromStr for InputConfig {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let args = args_parse(s.to_string(), "virtio-input", Some(1))?;
+
+        match &args[0].to_lowercase()[..] {
+            "keyboard" => Ok(Self::Keyboard),
+            "pointing" => Ok(Self::Pointing),
+            _ => Err(anyhow!("invalid virtio-input config")),
+        }
     }
 }
 
