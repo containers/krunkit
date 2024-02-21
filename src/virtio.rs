@@ -40,6 +40,7 @@ pub enum VirtioDeviceConfig {
     Vsock(VsockConfig),
     Net(NetConfig),
     Fs(FsConfig),
+    Gpu(GpuConfig),
 }
 
 /// Parse a virtio device configuration with its respective information/data.
@@ -64,6 +65,7 @@ impl FromStr for VirtioDeviceConfig {
             "virtio-vsock" => Ok(Self::Vsock(VsockConfig::from_str(&rest)?)),
             "virtio-net" => Ok(Self::Net(NetConfig::from_str(&rest)?)),
             "virtio-fs" => Ok(Self::Fs(FsConfig::from_str(&rest)?)),
+            "virtio-gpu" => Ok(Self::Gpu(GpuConfig::from_str(&rest)?)),
             _ => Err(anyhow!(format!(
                 "invalid virtio device label specified: {}",
                 args[0]
@@ -81,7 +83,8 @@ impl KrunContextSet for VirtioDeviceConfig {
             Self::Net(net) => net.krun_ctx_set(id),
             Self::Fs(fs) => fs.krun_ctx_set(id),
 
-            // virtio-rng and virtio-serial devices are currently not configured in krun.
+            // virtio-gpu, virtio-rng and virtio-serial devices are currently
+            // not configured in krun.
             _ => Ok(()),
         }
     }
@@ -321,6 +324,31 @@ impl KrunContextSet for FsConfig {
         }
 
         Ok(())
+    }
+}
+
+/// Configuration of a virtio-gpu device.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GpuConfig {
+    /// Width (pixels).
+    pub width: u32,
+
+    /// Height (pixels).
+    pub height: u32,
+}
+
+impl FromStr for GpuConfig {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let args = args_parse(s.to_string(), "virtio-gpu", Some(2))?;
+
+        let width = u32::from_str(&val_parse(args[0].clone(), "width")?)
+            .context("GPU width argument not a valid u32")?;
+        let height = u32::from_str(&val_parse(args[1].clone(), "height")?)
+            .context("GPU height argument not a valid u32")?;
+
+        Ok(Self { width, height })
     }
 }
 
