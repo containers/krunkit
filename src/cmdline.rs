@@ -215,6 +215,8 @@ mod tests {
             "virtio-fs,sharedDir=/Users/user/fs,mountTag=guest-dir",
             "--device",
             "virtio-vsock,port=1025,socketURL=/Users/user/vsock2.sock,listen",
+            "--device",
+            "virtio-gpu,width=800,height=600",
             "--restful-uri",
             "tcp://localhost:49573",
             "--log-level",
@@ -222,6 +224,17 @@ mod tests {
         ];
 
         let mut args = Args::try_parse_from(cmdline).unwrap();
+
+        let gpu = args
+            .devices
+            .pop()
+            .expect("expected 9th virtio device config");
+        if let VirtioDeviceConfig::Gpu(gpu) = gpu {
+            assert_eq!(gpu.width, 800);
+            assert_eq!(gpu.height, 600);
+        } else {
+            panic!("expected virtio-gpu device as 9th device config argument");
+        }
 
         let vsock = args
             .devices
