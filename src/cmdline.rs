@@ -30,6 +30,10 @@ pub struct Args {
     /// URI of the status/shutdown listener.
     #[arg(long = "restful-uri")]
     pub restful_uri: Option<RestfulUriAddr>,
+
+    /// GUI option for compatibility with vfkit (ignored).
+    #[arg(long, default_value_t = false)]
+    pub gui: bool,
 }
 
 /// Parse a string into a vector of substrings, all of which are separated by commas.
