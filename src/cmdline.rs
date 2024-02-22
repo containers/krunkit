@@ -204,6 +204,7 @@ mod tests {
             "virtio-input,keyboard",
             "--restful-uri",
             "tcp://localhost:49573",
+            "--gui",
         ];
 
         let mut args = Args::try_parse_from(cmdline).unwrap();
@@ -330,5 +331,7 @@ mod tests {
 
         assert_eq!(restful_uri.ip_addr, Ipv4Addr::new(127, 0, 0, 1));
         assert_eq!(restful_uri.port, 49573);
+
+        assert_eq!(args.gui, true);
     }
 }
