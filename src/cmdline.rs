@@ -34,6 +34,10 @@ pub struct Args {
     /// Level for message logs.
     #[arg(long = "log-level")]
     pub log_level: Option<LogLevel>,
+
+    /// GUI option for compatibility with vfkit (ignored).
+    #[arg(long, default_value_t = false)]
+    pub gui: bool,
 }
 
 /// Parse a string into a vector of substrings, all of which are separated by commas.
