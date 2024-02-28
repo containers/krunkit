@@ -108,7 +108,7 @@ impl FromStr for BlkConfig {
         let args = args_parse(s.to_string(), "virtio-blk", Some(1))?;
 
         Ok(Self {
-            path: PathBuf::from_str(&val_parse(args[0].clone(), "path")?)
+            path: PathBuf::from_str(&val_parse(&args[0], "path")?)
                 .context("path argument not a valid path")?,
         })
     }
@@ -153,7 +153,7 @@ impl FromStr for SerialConfig {
         let args = args_parse(s.to_string(), "virtio-serial", Some(1))?;
 
         Ok(Self {
-            log_file_path: PathBuf::from_str(&val_parse(args[0].clone(), "logFilePath")?)
+            log_file_path: PathBuf::from_str(&val_parse(&args[0], "logFilePath")?)
                 .context("logFilePath argument not a valid path")?,
         })
     }
@@ -193,9 +193,8 @@ impl FromStr for VsockConfig {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let args = args_parse(s.to_string(), "virtio-vsock", Some(3))?;
 
-        let port =
-            u32::from_str(&val_parse(args[0].clone(), "port")?).context("port argument invalid")?;
-        let socket_url = PathBuf::from_str(&val_parse(args[1].clone(), "socketURL")?)
+        let port = u32::from_str(&val_parse(&args[0], "port")?).context("port argument invalid")?;
+        let socket_url = PathBuf::from_str(&val_parse(&args[1], "socketURL")?)
             .context("socketURL argument not a valid path")?;
         let action = VsockAction::from_str(&args[2])?;
 
@@ -261,9 +260,9 @@ impl FromStr for NetConfig {
         let args = args_parse(s.to_string(), "virtio-net", Some(2))?;
 
         Ok(Self {
-            unix_socket_path: PathBuf::from_str(&val_parse(args[0].clone(), "unixSocketPath")?)
+            unix_socket_path: PathBuf::from_str(&val_parse(&args[0], "unixSocketPath")?)
                 .context("unixSocketPath argument not a valid path")?,
-            mac_address: MacAddress::from_str(&val_parse(args[1].clone(), "mac")?)
+            mac_address: MacAddress::from_str(&val_parse(&args[1], "mac")?)
                 .context("unable to parse mac address from argument")?,
         })
     }
@@ -316,9 +315,9 @@ impl FromStr for FsConfig {
             ));
         }
 
-        let shared_dir = PathBuf::from_str(&val_parse(args[0].clone(), "sharedDir")?)
+        let shared_dir = PathBuf::from_str(&val_parse(&args[0], "sharedDir")?)
             .context("sharedDir argument not a valid path")?;
-        let mount_tag = PathBuf::from_str(&val_parse(args[1].clone(), "mountTag")?)
+        let mount_tag = PathBuf::from_str(&val_parse(&args[1], "mountTag")?)
             .context("mountTag argument not a valid path")?;
 
         Ok(Self {
@@ -362,9 +361,9 @@ impl FromStr for GpuConfig {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let args = args_parse(s.to_string(), "virtio-gpu", Some(2))?;
 
-        let width = u32::from_str(&val_parse(args[0].clone(), "width")?)
+        let width = u32::from_str(&val_parse(&args[0], "width")?)
             .context("GPU width argument not a valid u32")?;
-        let height = u32::from_str(&val_parse(args[1].clone(), "height")?)
+        let height = u32::from_str(&val_parse(&args[1], "height")?)
             .context("GPU height argument not a valid u32")?;
 
         Ok(Self { width, height })
