@@ -58,7 +58,7 @@ pub fn args_parse(s: String, label: &str, sz: Option<usize>) -> Result<Vec<Strin
 /// Parse the value of some expected label, in which the two are separated by an '=' character.
 ///
 /// For example, if a string is hello=world, "hello" is the label and "world" is the value.
-pub fn val_parse(s: String, label: &str) -> Result<String> {
+pub fn val_parse(s: &str, label: &str) -> Result<String> {
     let vals: Vec<&str> = s.split('=').collect();
 
     match vals.len() {
@@ -75,7 +75,7 @@ pub fn val_parse(s: String, label: &str) -> Result<String> {
 
             Ok(vals[1].to_string())
         }
-        _ => Err(anyhow!(format!("invalid argument format: {}", s.clone()))),
+        _ => Err(anyhow!(format!("invalid argument format: {s}"))),
     }
 }
 
@@ -135,7 +135,7 @@ mod bootloader {
         type Err = anyhow::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let value = val_parse(s.to_string(), "variable-store")?;
+            let value = val_parse(s, "variable-store")?;
 
             Ok(Self(
                 PathBuf::from_str(&value).context("variable-store argument not a valid path")?,
