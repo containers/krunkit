@@ -21,7 +21,7 @@ Number of vCPUs available to a virtual machine.
 
 - `--memory`
 
-Amount of RAM available to a virtual machine. Value is in MiB (mibibytes, 1024^3 bytes).
+Amount of RAM available to a virtual machine. Value is in MiB (mebibytes, 1024^2 bytes).
 
 #### Example
 
