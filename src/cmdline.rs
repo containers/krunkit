@@ -34,6 +34,10 @@ pub struct Args {
     /// GUI option for compatibility with vfkit (ignored).
     #[arg(long, default_value_t = false)]
     pub gui: bool,
+
+    /// SMBIOS OEM String
+    #[arg(long = "oem-string")]
+    pub oem_strings: Option<Vec<String>>,
 }
 
 /// Parse a string into a vector of substrings, all of which are separated by commas.
