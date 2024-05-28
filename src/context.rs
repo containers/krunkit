@@ -7,15 +7,17 @@ use crate::{
     virtio::KrunContextSet,
 };
 
-use std::{convert::TryFrom, thread};
+use std::ffi::{c_char, CString};
+use std::{convert::TryFrom, ptr, thread};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 
 #[link(name = "krun-efi")]
 extern "C" {
     fn krun_create_ctx() -> i32;
     fn krun_set_gpu_options(ctx_id: u32, virgl_flags: u32) -> i32;
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
+    fn krun_set_smbios_oem_strings(ctx_id: u32, oem_strings: *const *const c_char) -> i32;
     fn krun_start_enter(ctx_id: u32) -> i32;
 }
 
@@ -67,6 +69,8 @@ impl TryFrom<Args> for KrunContext {
             unsafe { device.krun_ctx_set(id)? }
         }
 
+        set_smbios_oem_strings(id, &args.oem_strings)?;
+
         Ok(Self { id, args })
     }
 }
@@ -88,4 +92,32 @@ impl KrunContext {
 
         Ok(())
     }
+}
+
+fn set_smbios_oem_strings(
+    ctx_id: u32,
+    oem_strings: &Option<Vec<String>>,
+) -> Result<(), anyhow::Error> {
+    let Some(oem_strings) = oem_strings else {
+        return Ok(());
+    };
+
+    if oem_strings.len() > u8::MAX as usize {
+        return Err(anyhow!("invalid number of SMBIOS OEM strings"));
+    }
+
+    let mut cstr_vec = Vec::with_capacity(oem_strings.len());
+    for s in oem_strings {
+        let cs = CString::new(s.as_str()).context("invalid SMBIOS OEM string")?;
+        cstr_vec.push(cs);
+    }
+    let mut ptr_vec: Vec<_> = cstr_vec.iter().map(|s| s.as_ptr()).collect();
+    // libkrun requires an NULL terminator to indicate the end of the array
+    ptr_vec.push(ptr::null());
+
+    let ret = unsafe { krun_set_smbios_oem_strings(ctx_id, ptr_vec.as_ptr()) };
+    if ret < 0 {
+        return Err(anyhow!("unable to set SMBIOS OEM Strings"));
+    }
+    Ok(())
 }
