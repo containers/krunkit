@@ -15,7 +15,7 @@ use anyhow::{anyhow, Context};
 #[link(name = "krun-efi")]
 extern "C" {
     fn krun_create_ctx() -> i32;
-    fn krun_set_gpu_options(ctx_id: u32, virgl_flags: u32) -> i32;
+    fn krun_set_gpu_options2(ctx_id: u32, virgl_flags: u32, shm_size: u64) -> i32;
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
     fn krun_set_smbios_oem_strings(ctx_id: u32, oem_strings: *const *const c_char) -> i32;
     fn krun_start_enter(ctx_id: u32) -> i32;
@@ -64,7 +64,8 @@ impl TryFrom<Args> for KrunContext {
 
         // Temporarily enable GPU by default
         let virgl_flags = VIRGLRENDERER_VENUS | VIRGLRENDERER_NO_VIRGL;
-        if unsafe { krun_set_gpu_options(id, virgl_flags) } < 0 {
+        let sys = sysinfo::System::new_all();
+        if unsafe { krun_set_gpu_options2(id, virgl_flags, sys.total_memory()) } < 0 {
             return Err(anyhow!("unable to set krun vCPU/RAM configuration"));
         }
 
