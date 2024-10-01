@@ -14,17 +14,18 @@ use mac_address::MacAddress;
 
 #[link(name = "krun-efi")]
 extern "C" {
-    fn krun_set_root_disk(ctx_id: u32, c_disk_path: *const c_char) -> i32;
-    fn krun_set_data_disk(ctx_id: u32, c_disk_path: *const c_char) -> i32;
+    fn krun_add_disk(
+        ctx_id: u32,
+        c_block_id: *const c_char,
+        c_disk_path: *const c_char,
+        read_only: bool,
+    ) -> i32;
     fn krun_add_vsock_port(ctx_id: u32, port: u32, c_filepath: *const c_char) -> i32;
     fn krun_add_virtiofs(ctx_id: u32, c_tag: *const c_char, c_path: *const c_char) -> i32;
     fn krun_set_gvproxy_path(ctx_id: u32, c_path: *const c_char) -> i32;
     fn krun_set_net_mac(ctx_id: u32, c_mac: *const u8) -> i32;
     fn krun_set_console_output(ctx_id: u32, c_filepath: *const c_char) -> i32;
 }
-
-static mut ROOT_BLK_SET: bool = false;
-static mut DATA_BLK_SET: bool = false;
 
 /// Each virito device configures itself with krun differently. This is used by each virtio device
 /// to set their respective configurations with libkrun.
@@ -117,22 +118,18 @@ impl FromStr for BlkConfig {
 /// Set the virtio-blk device to be the krun VM's root disk.
 impl KrunContextSet for BlkConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
+        let basename = match self.path.file_name() {
+            Some(osstr) => osstr.to_str().unwrap_or("disk"),
+            None => "disk",
+        };
+        let block_id_cstr = CString::new(basename).context("can't convert basename to cstring")?;
         let path_cstr = path_to_cstring(&self.path)?;
 
-        if !ROOT_BLK_SET {
-            if krun_set_root_disk(id, path_cstr.as_ptr()) < 0 {
-                return Err(anyhow!("unable to set virtio-blk root disk"));
-            }
-
-            ROOT_BLK_SET = true;
-        } else if !DATA_BLK_SET {
-            if krun_set_data_disk(id, path_cstr.as_ptr()) < 0 {
-                return Err(anyhow!("unable to set virtio-blk data disk"));
-            }
-
-            DATA_BLK_SET = true;
-        } else {
-            return Err(anyhow!("krun root and data disk already set"));
+        if krun_add_disk(id, block_id_cstr.as_ptr(), path_cstr.as_ptr(), false) < 0 {
+            return Err(anyhow!(format!(
+                "unable to set virtio-blk disk for {}",
+                self.path.display()
+            )));
         }
 
         Ok(())
