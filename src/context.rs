@@ -60,6 +60,11 @@ impl TryFrom<Args> for KrunContext {
 
         if args.memory == 0 {
             return Err(anyhow!("zero MiB RAM inputted (invalid)"));
+        } else if args.memory > 61440 {
+            // Limit RAM to 60 GiB of the 62 GiB upper bound to leave room for VRAM.
+            return Err(anyhow!(
+                "requested RAM larger than upper limit of 61440 MiB"
+            ));
         }
 
         if unsafe { krun_set_vm_config(id, args.cpus, args.memory) } < 0 {
@@ -69,7 +74,10 @@ impl TryFrom<Args> for KrunContext {
         // Temporarily enable GPU by default
         let virgl_flags = VIRGLRENDERER_VENUS | VIRGLRENDERER_NO_VIRGL;
         let sys = sysinfo::System::new_all();
-        if unsafe { krun_set_gpu_options2(id, virgl_flags, sys.total_memory()) } < 0 {
+        // Limit RAM + VRAM to 64 GB (36 bit IPA address limit) minus 2 GB (start address plus rounding).
+        let rounded_mem = ((args.memory as u64) / 1024 + 1) * 1024;
+        let vram = std::cmp::min((63488 - rounded_mem) * 1024 * 1024, sys.total_memory());
+        if unsafe { krun_set_gpu_options2(id, virgl_flags, vram) } < 0 {
             return Err(anyhow!("unable to set krun vCPU/RAM configuration"));
         }
 
