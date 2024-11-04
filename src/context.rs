@@ -15,6 +15,7 @@ use anyhow::{anyhow, Context};
 #[link(name = "krun-efi")]
 extern "C" {
     fn krun_create_ctx() -> i32;
+    fn krun_set_log_level(level: u32) -> i32;
     fn krun_set_gpu_options2(ctx_id: u32, virgl_flags: u32, shm_size: u64) -> i32;
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
     fn krun_set_smbios_oem_strings(ctx_id: u32, oem_strings: *const *const c_char) -> i32;
@@ -35,6 +36,9 @@ impl TryFrom<Args> for KrunContext {
     type Error = anyhow::Error;
 
     fn try_from(args: Args) -> Result<Self, Self::Error> {
+        // Start by setting up the desired log level for libkrun.
+        unsafe { krun_set_log_level(args.krun_log_level) };
+
         // Create a new context in libkrun. Store identifier to later use to configure VM
         // resources and devices.
         let id = unsafe { krun_create_ctx() };

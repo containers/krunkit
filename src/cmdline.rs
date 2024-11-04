@@ -38,6 +38,10 @@ pub struct Args {
     /// SMBIOS OEM String
     #[arg(long = "oem-string")]
     pub oem_strings: Option<Vec<String>>,
+
+    /// Log level for libkrun (0=off, 1=error, 2=warn, 3=info, 4=debug, 5 or higher=trace)
+    #[arg(long = "krun-log-level")]
+    pub krun_log_level: u32,
 }
 
 /// Parse a string into a vector of substrings, all of which are separated by commas.
