@@ -40,7 +40,7 @@ pub struct Args {
     pub oem_strings: Option<Vec<String>>,
 
     /// Log level for libkrun (0=off, 1=error, 2=warn, 3=info, 4=debug, 5 or higher=trace)
-    #[arg(long = "krun-log-level")]
+    #[arg(long = "krun-log-level", default_value_t = 0)]
     pub krun_log_level: u32,
 }
 
