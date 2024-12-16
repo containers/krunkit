@@ -14,10 +14,11 @@ use mac_address::MacAddress;
 
 #[link(name = "krun-efi")]
 extern "C" {
-    fn krun_add_disk(
+    fn krun_add_disk2(
         ctx_id: u32,
         c_block_id: *const c_char,
         c_disk_path: *const c_char,
+        disk_format: u32,
         read_only: bool,
     ) -> i32;
     fn krun_add_vsock_port(ctx_id: u32, port: u32, c_filepath: *const c_char) -> i32;
@@ -25,6 +26,25 @@ extern "C" {
     fn krun_set_gvproxy_path(ctx_id: u32, c_path: *const c_char) -> i32;
     fn krun_set_net_mac(ctx_id: u32, c_mac: *const u8) -> i32;
     fn krun_set_console_output(ctx_id: u32, c_filepath: *const c_char) -> i32;
+}
+
+#[repr(u32)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum DiskImageFormat {
+    Raw = 0,
+    Qcow2 = 1,
+}
+
+impl FromStr for DiskImageFormat {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "raw" => Ok(DiskImageFormat::Raw),
+            "qcow2" => Ok(DiskImageFormat::Qcow2),
+            _ => Err(anyhow!("unsupported disk image format")),
+        }
+    }
 }
 
 /// Each virito device configures itself with krun differently. This is used by each virtio device
@@ -100,17 +120,21 @@ impl KrunContextSet for VirtioDeviceConfig {
 pub struct BlkConfig {
     /// Path of the file to store as the root disk.
     pub path: PathBuf,
+
+    /// Format of the disk image.
+    pub format: DiskImageFormat,
 }
 
 impl FromStr for BlkConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-blk", Some(1))?;
+        let args = args_parse(s.to_string(), "virtio-blk", Some(2))?;
 
         Ok(Self {
             path: PathBuf::from_str(&val_parse(&args[0], "path")?)
                 .context("path argument not a valid path")?,
+            format: DiskImageFormat::from_str(val_parse(&args[1], "format")?.as_str())?,
         })
     }
 }
@@ -125,7 +149,14 @@ impl KrunContextSet for BlkConfig {
         let block_id_cstr = CString::new(basename).context("can't convert basename to cstring")?;
         let path_cstr = path_to_cstring(&self.path)?;
 
-        if krun_add_disk(id, block_id_cstr.as_ptr(), path_cstr.as_ptr(), false) < 0 {
+        if krun_add_disk2(
+            id,
+            block_id_cstr.as_ptr(),
+            path_cstr.as_ptr(),
+            self.format as u32,
+            false,
+        ) < 0
+        {
             return Err(anyhow!(format!(
                 "unable to set virtio-blk disk for {}",
                 self.path.display()
