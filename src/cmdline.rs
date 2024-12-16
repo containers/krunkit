@@ -191,13 +191,13 @@ mod tests {
             "--bootloader",
             "efi,variable-store=/Users/user/bootloader,create",
             "--device",
-            "virtio-blk,path=/Users/user/root.raw",
+            "virtio-blk,path=/Users/user/root.qcow2,format=qcow2",
             "--device",
             "virtio-rng",
             "--device",
             "virtio-serial,logFilePath=/Users/user/serial.log",
             "--device",
-            "virtio-blk,path=/Users/user/data.raw",
+            "virtio-blk,path=/Users/user/data.raw,format=raw",
             "--device",
             "virtio-vsock,port=1024,socketURL=/Users/user/vsock1.sock,listen",
             "--device",
@@ -299,6 +299,7 @@ mod tests {
             .expect("expected 4th virtio device config");
         if let VirtioDeviceConfig::Blk(blk) = blk {
             assert_eq!(blk.path, PathBuf::from_str("/Users/user/data.raw").unwrap());
+            assert_eq!(blk.format, DiskImageFormat::Raw);
         } else {
             panic!("expected virtio-blk device as 4th device config argument");
         }
@@ -330,7 +331,11 @@ mod tests {
             .pop()
             .expect("expected 1st virtio device config");
         if let VirtioDeviceConfig::Blk(blk) = blk {
-            assert_eq!(blk.path, PathBuf::from_str("/Users/user/root.raw").unwrap());
+            assert_eq!(
+                blk.path,
+                PathBuf::from_str("/Users/user/root.qcow2").unwrap()
+            );
+            assert_eq!(blk.format, DiskImageFormat::Qcow2);
         } else {
             panic!("expected virtio-blk device as 1st device config argument");
         }
