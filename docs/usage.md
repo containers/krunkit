@@ -46,6 +46,7 @@ as a virtual machine's data disk (`/dev/vdb`).
 #### Arguments
 
 - `path`: Path to the disk image file.
+- `format`: Format of the disk image. Supported formats: raw, qcow2.
 
 #### Example
 
@@ -53,7 +54,7 @@ This adds a virtio-blk device to a virtual machine which will be backed by a raw
 `/Users/user/disk-image.raw`:
 
 ```
---device virtio-blk,path=/Users/user/disk-image.raw
+--device virtio-blk,path=/Users/user/disk-image.raw,format=raw
 ```
 
 ### Networking
