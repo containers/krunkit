@@ -12,11 +12,11 @@ use clap::Parser;
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// Number of vCPUs for the VM.
-    #[arg(long)]
+    #[arg(long, short)]
     pub cpus: u8,
 
     /// Amount of RAM available to VM.
-    #[arg(long)]
+    #[arg(long, short)]
     pub memory: u32,
 
     /// Bootloader configuration.
