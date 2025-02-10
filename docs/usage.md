@@ -8,6 +8,10 @@ will require a root disk to be useful.
 
 ## Generic Options
 
+- `--krun-log-level`
+
+Set the log level for libkrun. Supported values: 0=off, 1=error, 2=warn, 3=info (default), 4=debug, 5=trace.
+
 - `--restful-uri`
 
 The URI (address) of the RESTful service. If not specified, defaults to `tcp://localhost:8081`. `tcp` is the only
