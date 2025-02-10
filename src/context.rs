@@ -36,6 +36,13 @@ impl TryFrom<Args> for KrunContext {
     type Error = anyhow::Error;
 
     fn try_from(args: Args) -> Result<Self, Self::Error> {
+        if args.krun_log_level > 5 {
+            return Err(anyhow!(format!(
+                "invalid log level value: {}",
+                args.krun_log_level
+            )));
+        }
+
         // Start by setting up the desired log level for libkrun.
         unsafe { krun_set_log_level(args.krun_log_level) };
 
