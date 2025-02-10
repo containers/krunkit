@@ -29,8 +29,9 @@ extern "C" {
 }
 
 #[repr(u32)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum DiskImageFormat {
+    #[default]
     Raw = 0,
     Qcow2 = 1,
 }
@@ -116,7 +117,7 @@ impl KrunContextSet for VirtioDeviceConfig {
 }
 
 /// Configuration of a virtio-blk device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct BlkConfig {
     /// Path of the file to store as the root disk.
     pub path: PathBuf,
@@ -129,13 +130,21 @@ impl FromStr for BlkConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-blk", Some(2))?;
+        let mut blk_config = Self::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-blk", &["path"])?;
 
-        Ok(Self {
-            path: PathBuf::from_str(&val_parse(&args[0], "path")?)
-                .context("path argument not a valid path")?,
-            format: DiskImageFormat::from_str(val_parse(&args[1], "format")?.as_str())?,
-        })
+        let path = args.remove("path").unwrap();
+        blk_config.path =
+            PathBuf::from_str(path.as_str()).context("path argument not a valid path")?;
+
+        if let Some(f) = args.remove("format") {
+            blk_config.format = DiskImageFormat::from_str(f.as_str())?;
+        }
+
+        check_unknown_args(args, "virtio-blk")?;
+
+        Ok(blk_config)
     }
 }
 
