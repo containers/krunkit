@@ -40,7 +40,7 @@ pub struct Args {
     pub oem_strings: Option<Vec<String>>,
 
     /// Log level for libkrun (0=off, 1=error, 2=warn, 3=info, 4=debug, 5 or higher=trace)
-    #[arg(long = "krun-log-level", default_value_t = 0)]
+    #[arg(long = "krun-log-level", default_value_t = 3)]
     pub krun_log_level: u32,
 }
 
@@ -213,6 +213,8 @@ mod tests {
             "--restful-uri",
             "tcp://localhost:49573",
             "--gui",
+            "--krun-log-level",
+            "5",
         ];
 
         let mut args = Args::try_parse_from(cmdline).unwrap();
@@ -346,5 +348,6 @@ mod tests {
         assert_eq!(restful_uri.port, 49573);
 
         assert_eq!(args.gui, true);
+        assert_eq!(args.krun_log_level, 5);
     }
 }
