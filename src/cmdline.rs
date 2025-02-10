@@ -227,6 +227,21 @@ mod bootloader {
 
 mod tests {
     #[test]
+    fn virtio_blk_argument_ordering() {
+        let in_order =
+            super::parse_args(String::from("path=/Users/user/disk-image.raw,format=raw")).unwrap();
+        let out_of_order =
+            super::parse_args(String::from("format=raw,path=/Users/user/disk-image.raw")).unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert("path".to_string(), "/Users/user/disk-image.raw".to_string());
+        expected.insert("format".to_string(), "raw".to_string());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
     fn argument_parsing() {
         let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
         let args = super::parse_args(s).unwrap();
