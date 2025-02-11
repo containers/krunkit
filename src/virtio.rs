@@ -353,7 +353,7 @@ impl KrunContextSet for NetConfig {
 }
 
 /// Configuration of a virtio-fs device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FsConfig {
     /// Shared directory with the host.
     pub shared_dir: PathBuf,
@@ -366,24 +366,21 @@ impl FromStr for FsConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-fs", None)?;
+        let mut fs_config = FsConfig::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-fs", &["sharedDir", "mountTag"])?;
 
-        if args.len() < 2 {
-            return Err(anyhow!(
-                "expected at least 2 arguments, found {}",
-                args.len()
-            ));
-        }
+        let shared_dir = args.remove("sharedDir").unwrap();
+        fs_config.shared_dir = PathBuf::from_str(shared_dir.as_str())
+            .context("sharedDir argument is not a valid path")?;
 
-        let shared_dir = PathBuf::from_str(&val_parse(&args[0], "sharedDir")?)
-            .context("sharedDir argument not a valid path")?;
-        let mount_tag = PathBuf::from_str(&val_parse(&args[1], "mountTag")?)
-            .context("mountTag argument not a valid path")?;
+        let mount_tag = args.remove("mountTag").unwrap();
+        fs_config.mount_tag =
+            PathBuf::from_str(mount_tag.as_str()).context("mountTag argument not a valid path")?;
 
-        Ok(Self {
-            shared_dir,
-            mount_tag,
-        })
+        check_unknown_args(args, "virtio-fs")?;
+
+        Ok(fs_config)
     }
 }
 

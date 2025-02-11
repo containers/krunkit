@@ -287,6 +287,28 @@ mod tests {
     }
 
     #[test]
+    fn virtio_fs_argument_ordering() {
+        let in_order = super::parse_args(String::from(
+            "sharedDir=/Users/user/shared-dir,mountTag=MOUNT_TAG",
+        ))
+        .unwrap();
+        let out_of_order = super::parse_args(String::from(
+            "mountTag=MOUNT_TAG,sharedDir=/Users/user/shared-dir",
+        ))
+        .unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert(
+            "sharedDir".to_string(),
+            "/Users/user/shared-dir".to_string(),
+        );
+        expected.insert("mountTag".to_string(), "MOUNT_TAG".to_string());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
     fn argument_parsing() {
         let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
         let args = super::parse_args(s).unwrap();
