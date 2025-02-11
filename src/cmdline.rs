@@ -264,6 +264,29 @@ mod tests {
     }
 
     #[test]
+    fn virtio_vsock_argument_ordering() {
+        let in_order = super::parse_args(String::from(
+            "port=1025,socketURL=/Users/user/vsock2.sock,listen",
+        ))
+        .unwrap();
+        let out_of_order = super::parse_args(String::from(
+            "port=1025,listen,socketURL=/Users/user/vsock2.sock",
+        ))
+        .unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert("port".to_string(), "1025".to_string());
+        expected.insert(
+            "socketURL".to_string(),
+            "/Users/user/vsock2.sock".to_string(),
+        );
+        expected.insert("listen".to_string(), String::new());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
     fn argument_parsing() {
         let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
         let args = super::parse_args(s).unwrap();
