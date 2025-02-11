@@ -10,7 +10,7 @@ will require a root disk to be useful.
 
 - `--krun-log-level`
 
-Set the log level for libkrun. Supported values: 0=off, 1=error, 2=warn, 3=info (default), 4=debug, 5=trace.
+Set the log level for libkrun. Supported values: 0=off, 1=error, 2=warn, 3=info (default), 4=debug, 5 or more=trace.
 
 - `--restful-uri`
 
