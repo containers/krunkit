@@ -242,6 +242,28 @@ mod tests {
     }
 
     #[test]
+    fn virtio_net_argument_ordering() {
+        let in_order = super::parse_args(String::from(
+            "unixSocketPath=/Users/user/vm-network.sock,mac=ff:ff:ff:ff:ff:ff",
+        ))
+        .unwrap();
+        let out_of_order = super::parse_args(String::from(
+            "mac=ff:ff:ff:ff:ff:ff,unixSocketPath=/Users/user/vm-network.sock",
+        ))
+        .unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert(
+            "unixSocketPath".to_string(),
+            "/Users/user/vm-network.sock".to_string(),
+        );
+        expected.insert("mac".to_string(), "ff:ff:ff:ff:ff:ff".to_string());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
     fn argument_parsing() {
         let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
         let args = super::parse_args(s).unwrap();
