@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::cmdline::{args_parse, check_required_args, check_unknown_args, parse_args, val_parse};
+use crate::cmdline::{args_parse, check_required_args, check_unknown_args, parse_args};
 
 use std::{
     ffi::{c_char, CString},
@@ -403,7 +403,7 @@ impl KrunContextSet for FsConfig {
 }
 
 /// Configuration of a virtio-gpu device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct GpuConfig {
     /// Width (pixels).
     pub width: u32,
@@ -416,14 +416,25 @@ impl FromStr for GpuConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-gpu", Some(2))?;
+        let mut gpu_config = GpuConfig::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-gpu", &["height", "width"])?;
 
-        let width = u32::from_str(&val_parse(&args[0], "width")?)
-            .context("GPU width argument not a valid u32")?;
-        let height = u32::from_str(&val_parse(&args[1], "height")?)
-            .context("GPU height argument not a valid u32")?;
+        let width = args.remove("width").unwrap();
+        gpu_config.width = u32::from_str(width.as_str()).context(format!(
+            "GPU width argument out of range (0x0 - 0x{:x})",
+            u32::MAX
+        ))?;
 
-        Ok(Self { width, height })
+        let height = args.remove("height").unwrap();
+        gpu_config.height = u32::from_str(height.as_str()).context(format!(
+            "GPU height argument out of range (0x0 - 0x{:x})",
+            u32::MAX
+        ))?;
+
+        check_unknown_args(args, "virtio-gpu")?;
+
+        Ok(gpu_config)
     }
 }
 

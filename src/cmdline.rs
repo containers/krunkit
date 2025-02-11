@@ -309,6 +309,19 @@ mod tests {
     }
 
     #[test]
+    fn virtio_gpu_argument_ordering() {
+        let in_order = super::parse_args(String::from("height=50,width=25")).unwrap();
+        let out_of_order = super::parse_args(String::from("width=25,height=50")).unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert("height".to_string(), "50".to_string());
+        expected.insert("width".to_string(), "25".to_string());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
     fn argument_parsing() {
         let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
         let args = super::parse_args(s).unwrap();
