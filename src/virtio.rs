@@ -439,12 +439,22 @@ impl FromStr for InputConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-input", Some(1))?;
+        let args = parse_args(s.to_string())?;
 
-        match &args[0].to_lowercase()[..] {
+        if args.len() != 1 {
+            return Err(anyhow!("invalid virtio-input config: {s}"));
+        }
+
+        let (key, value) = args.into_iter().next().unwrap();
+        if !value.is_empty() {
+            return Err(anyhow!(format!(
+                "unexpected value for virtio-input argument: {key}={value}"
+            )));
+        }
+        match key.as_str() {
             "keyboard" => Ok(Self::Keyboard),
             "pointing" => Ok(Self::Pointing),
-            _ => Err(anyhow!("invalid virtio-input config")),
+            _ => Err(anyhow!("unknown virtio-input argument: {key}")),
         }
     }
 }
