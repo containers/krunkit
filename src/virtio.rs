@@ -281,7 +281,7 @@ impl FromStr for VsockAction {
 }
 
 /// Configuration of a virtio-net device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct NetConfig {
     /// Path to underlying gvproxy socket.
     pub unix_socket_path: PathBuf,
@@ -294,14 +294,21 @@ impl FromStr for NetConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-net", Some(2))?;
+        let mut net_config = Self::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-net", &["unixSocketPath", "mac"])?;
 
-        Ok(Self {
-            unix_socket_path: PathBuf::from_str(&val_parse(&args[0], "unixSocketPath")?)
-                .context("unixSocketPath argument not a valid path")?,
-            mac_address: MacAddress::from_str(&val_parse(&args[1], "mac")?)
-                .context("unable to parse mac address from argument")?,
-        })
+        let unix_socket_path = args.remove("unixSocketPath").unwrap();
+        net_config.unix_socket_path = PathBuf::from_str(unix_socket_path.as_str())
+            .context("unixSocketPath argument not a valid path")?;
+
+        let mac = args.remove("mac").unwrap();
+        net_config.mac_address = MacAddress::from_str(mac.as_str())
+            .context("unable to parse mac address from argument")?;
+
+        check_unknown_args(args, "virtio-net")?;
+
+        Ok(net_config)
     }
 }
 
