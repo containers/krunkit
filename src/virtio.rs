@@ -216,7 +216,7 @@ impl KrunContextSet for SerialConfig {
 }
 
 /// Configuration of a virtio-vsock device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct VsockConfig {
     /// Port to connect to on VM.
     pub port: u32,
@@ -232,18 +232,29 @@ impl FromStr for VsockConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-vsock", Some(3))?;
+        let mut vsock_config = Self::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-vsock", &["port", "socketURL"])?;
 
-        let port = u32::from_str(&val_parse(&args[0], "port")?).context("port argument invalid")?;
-        let socket_url = PathBuf::from_str(&val_parse(&args[1], "socketURL")?)
+        let port = args.remove("port").unwrap();
+        vsock_config.port = u32::from_str(port.as_str()).context("port argument invalid")?;
+
+        let socket_url = args.remove("socketURL").unwrap();
+        vsock_config.socket_url = PathBuf::from_str(socket_url.as_str())
             .context("socketURL argument not a valid path")?;
-        let action = VsockAction::from_str(&args[2])?;
 
-        Ok(Self {
-            port,
-            socket_url,
-            action,
-        })
+        if let Some(v) = args.remove("listen") {
+            if !v.is_empty() {
+                return Err(anyhow!(format!(
+                    "unexpected value for virtio-vsock argument: listen={v}"
+                )));
+            }
+            vsock_config.action = VsockAction::from_str("listen")?
+        }
+
+        check_unknown_args(args, "virtio-vsock")?;
+
+        Ok(vsock_config)
     }
 }
 
@@ -266,8 +277,9 @@ impl KrunContextSet for VsockConfig {
 }
 
 /// virtio-vsock action.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum VsockAction {
+    #[default]
     Listen,
 }
 
