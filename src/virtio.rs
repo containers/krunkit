@@ -187,10 +187,14 @@ impl FromStr for SerialConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-serial", Some(1))?;
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-serial", &["logFilePath"])?;
+
+        let log_file_path = args.remove("logFilePath").unwrap();
+        check_unknown_args(args, "virtio-serial")?;
 
         Ok(Self {
-            log_file_path: PathBuf::from_str(&val_parse(&args[0], "logFilePath")?)
+            log_file_path: PathBuf::from_str(log_file_path.as_str())
                 .context("logFilePath argument not a valid path")?,
         })
     }
