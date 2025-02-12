@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::cmdline::{args_parse, check_required_args, check_unknown_args, parse_args};
+use crate::cmdline::{check_required_args, check_unknown_args, parse_args};
 
 use std::{
     ffi::{c_char, CString},
@@ -72,7 +72,7 @@ impl FromStr for VirtioDeviceConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio", None)?;
+        let args: Vec<String> = s.split(',').map(|s| s.to_string()).collect();
 
         if args.is_empty() {
             return Err(anyhow!("no virtio device config found"));
