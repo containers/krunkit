@@ -44,49 +44,6 @@ pub struct Args {
     pub krun_log_level: u32,
 }
 
-/// Parse a string into a vector of substrings, all of which are separated by commas.
-pub fn args_parse(s: String, label: &str, sz: Option<usize>) -> Result<Vec<String>> {
-    let list: Vec<String> = s.split(',').map(|s| s.to_string()).collect();
-
-    // If an expected size is given, ensure that the parsed vector is of the expected size.
-    if let Some(size) = sz {
-        if list.len() != size {
-            return Err(anyhow!(
-                "expected --{} argument to have {} comma-separated sub-arguments, found {}",
-                label,
-                size,
-                list.len()
-            ));
-        }
-    }
-
-    Ok(list)
-}
-
-/// Parse the value of some expected label, in which the two are separated by an '=' character.
-///
-/// For example, if a string is hello=world, "hello" is the label and "world" is the value.
-pub fn val_parse(s: &str, label: &str) -> Result<String> {
-    let vals: Vec<&str> = s.split('=').collect();
-
-    match vals.len() {
-        1 => Ok(vals[0].to_string()),
-        2 => {
-            // Ensure that the label is as expected.
-            let label_found = vals[0];
-            if label_found != label {
-                return Err(anyhow!(format!(
-                    "expected label {}, found {}",
-                    label, label_found
-                )));
-            }
-
-            Ok(vals[1].to_string())
-        }
-        _ => Err(anyhow!(format!("invalid argument format: {s}"))),
-    }
-}
-
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
 /// respective value.
 pub fn parse_args(s: String) -> Result<HashMap<String, String>, anyhow::Error> {
@@ -156,11 +113,28 @@ mod bootloader {
         type Err = anyhow::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let args = args_parse(s.to_string(), "bootloader", Some(3))?;
+            let mut args = parse_args(s.to_string())?;
+            check_required_args(&args, "bootloader", &["efi", "variable-store", "create"])?;
 
-            let fw = BootloaderFw::from_str(&args[0])?;
-            let v = Vstore::from_str(&args[1])?;
-            let action = Action::from_str(&args[2])?;
+            let fw = args.remove("efi").unwrap();
+            if !fw.is_empty() {
+                return Err(anyhow!(format!("unknown bootloader argument: efi={fw}")));
+            }
+
+            let v = args.remove("variable-store").unwrap();
+
+            let action = args.remove("create").unwrap();
+            if !action.is_empty() {
+                return Err(anyhow!(format!(
+                    "unknown bootloader argument: create={action}"
+                )));
+            }
+
+            check_unknown_args(args, "bootloader")?;
+
+            let fw = BootloaderFw::from_str("efi")?;
+            let v = Vstore::from_str(v.as_str())?;
+            let action = Action::from_str("create")?;
 
             Ok(Self {
                 fw,
@@ -197,10 +171,8 @@ mod bootloader {
         type Err = anyhow::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let value = val_parse(s, "variable-store")?;
-
             Ok(Self(
-                PathBuf::from_str(&value).context("variable-store argument not a valid path")?,
+                PathBuf::from_str(s).context("variable-store argument not a valid path")?,
             ))
         }
     }
