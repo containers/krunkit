@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::cmdline::{args_parse, val_parse};
+use crate::cmdline::{args_parse, check_required_args, check_unknown_args, parse_args, val_parse};
 
 use std::{
     ffi::{c_char, CString},

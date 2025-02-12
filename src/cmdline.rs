@@ -2,7 +2,7 @@
 
 use crate::{status::RestfulUriAddr, virtio::VirtioDeviceConfig};
 
-use std::{path::PathBuf, str::FromStr};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
@@ -85,6 +85,60 @@ pub fn val_parse(s: &str, label: &str) -> Result<String> {
         }
         _ => Err(anyhow!(format!("invalid argument format: {s}"))),
     }
+}
+
+/// Parse the input string into a hash map of key value pairs, associating the argument with its
+/// respective value.
+pub fn parse_args(s: String) -> Result<HashMap<String, String>, anyhow::Error> {
+    let mut map: HashMap<String, String> = HashMap::new();
+    let list: Vec<String> = s.split(',').map(|s| s.to_string()).collect();
+
+    for arg in list {
+        let arg_parts: Vec<&str> = arg.split('=').collect();
+        let key = arg_parts[0].to_string();
+        let val = match arg_parts.len() {
+            1 => String::new(),
+            2 => arg_parts[1].to_string(),
+            _ => return Err(anyhow!(format!("invalid argument format: {arg}"))),
+        };
+        let res = map.insert(key, val);
+        if res.is_some() {
+            return Err(anyhow!(format!("argument {arg} is only expected once")));
+        }
+    }
+
+    Ok(map)
+}
+
+/// Check the arguments hash map if all required arguments are present
+pub fn check_required_args(
+    args: &HashMap<String, String>,
+    label: &str,
+    required: &[&str],
+) -> Result<(), anyhow::Error> {
+    for &r in required {
+        if !args.contains_key(r) {
+            return Err(anyhow!(format!("{label} is missing argument: {r}")));
+        }
+    }
+
+    Ok(())
+}
+
+/// Check the arguments hash map if any unknown arguments exist
+pub fn check_unknown_args(args: HashMap<String, String>, label: &str) -> Result<(), anyhow::Error> {
+    if !args.is_empty() {
+        let unknown_args: Vec<String> = args
+            .into_iter()
+            .map(|arg| format!("{}={}", arg.0, arg.1))
+            .collect();
+        return Err(anyhow!(format!(
+            "unknown {} arguments: {:?}",
+            label, unknown_args
+        )));
+    }
+
+    Ok(())
 }
 
 /// A wrapper of all data associated with the bootloader argument.
@@ -172,6 +226,51 @@ mod bootloader {
 }
 
 mod tests {
+    #[test]
+    fn argument_parsing() {
+        let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
+        let args = super::parse_args(s).unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert("port".to_string(), "1025".to_string());
+        expected.insert(
+            "socketURL".to_string(),
+            "/Users/user/vsock2.sock".to_string(),
+        );
+        expected.insert("listen".to_string(), String::new());
+        assert_eq!(expected, args);
+    }
+
+    #[test]
+    fn required_args() {
+        let required = &["port", "socketURL"];
+        let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
+        let args = super::parse_args(s).unwrap();
+
+        assert_eq!(
+            super::check_required_args(&args, "", required).is_ok(),
+            true
+        );
+
+        let required = &["port", "wrong"];
+        assert_ne!(
+            super::check_required_args(&args, "", required).is_ok(),
+            true
+        );
+    }
+
+    #[test]
+    fn unknown_args() {
+        use std::collections::HashMap;
+
+        let args: HashMap<String, String> = HashMap::new();
+        assert_eq!(super::check_unknown_args(args, "").is_ok(), true);
+
+        let mut args: HashMap<String, String> = HashMap::new();
+        args.insert("foo".to_string(), "bar".to_string());
+        assert_ne!(super::check_unknown_args(args, "").is_ok(), true);
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     fn mac_cmdline_ordering_argtest() {
