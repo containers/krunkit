@@ -11,6 +11,19 @@ $ brew tap slp/krunkit
 $ brew install krunkit
 ```
 
+## Building from source
+
+As noted above, `krunkit` relies on the `efi` flavor of `libkrun`. Ensure that is installed on your system.
+
+```
+# If libkrun-efi.dylib is not located at /opt/homebrew/opt/libkrun-efi/lib/
+# provide the path at which it's located using the LIBKRUN_EFI variable. Otherwise,
+# the Makefile will default to using the /opt/homebrew/... path.
+$ make LIBKRUN_EFI=<path to libkrun-efi.dylib>
+
+$ sudo make install
+```
+
 ## Usage
 
 See [`docs/usage.md`](./docs/usage.md).
