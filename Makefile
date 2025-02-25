@@ -1,6 +1,7 @@
 OS = $(shell uname -s)
 KRUNKIT_RELEASE = target/release/krunkit
 KRUNKIT_DEBUG = target/debug/krunkit
+KRUNKIT_HOMEBREW = /opt/homebrew/opt/libkrun-efi/lib/libkrun-efi.dylib
 
 ifeq ($(PREFIX),)
     PREFIX := /usr/local
@@ -15,6 +16,9 @@ debug: $(KRUNKIT_DEBUG)
 $(KRUNKIT_RELEASE):
 	cargo build --release
 ifeq ($(OS),Darwin)
+ifneq ($(LIBKRUN_EFI),)
+	install_name_tool -change $(KRUNKIT_HOMEBREW) $(LIBKRUN_EFI) $@
+endif
 	codesign --entitlements krunkit.entitlements --force -s - $@
 endif
 
