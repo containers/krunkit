@@ -2,7 +2,7 @@
 
 use crate::{status::RestfulUriAddr, virtio::VirtioDeviceConfig};
 
-use std::{path::PathBuf, str::FromStr};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
@@ -44,47 +44,58 @@ pub struct Args {
     pub krun_log_level: u32,
 }
 
-/// Parse a string into a vector of substrings, all of which are separated by commas.
-pub fn args_parse(s: String, label: &str, sz: Option<usize>) -> Result<Vec<String>> {
+/// Parse the input string into a hash map of key value pairs, associating the argument with its
+/// respective value.
+pub fn parse_args(s: String) -> Result<HashMap<String, String>, anyhow::Error> {
+    let mut map: HashMap<String, String> = HashMap::new();
     let list: Vec<String> = s.split(',').map(|s| s.to_string()).collect();
 
-    // If an expected size is given, ensure that the parsed vector is of the expected size.
-    if let Some(size) = sz {
-        if list.len() != size {
-            return Err(anyhow!(
-                "expected --{} argument to have {} comma-separated sub-arguments, found {}",
-                label,
-                size,
-                list.len()
-            ));
+    for arg in list {
+        let arg_parts: Vec<&str> = arg.split('=').collect();
+        let key = arg_parts[0].to_string();
+        let val = match arg_parts.len() {
+            1 => String::new(),
+            2 => arg_parts[1].to_string(),
+            _ => return Err(anyhow!(format!("invalid argument format: {arg}"))),
+        };
+        let res = map.insert(key, val);
+        if res.is_some() {
+            return Err(anyhow!(format!("argument {arg} is only expected once")));
         }
     }
 
-    Ok(list)
+    Ok(map)
 }
 
-/// Parse the value of some expected label, in which the two are separated by an '=' character.
-///
-/// For example, if a string is hello=world, "hello" is the label and "world" is the value.
-pub fn val_parse(s: &str, label: &str) -> Result<String> {
-    let vals: Vec<&str> = s.split('=').collect();
-
-    match vals.len() {
-        1 => Ok(vals[0].to_string()),
-        2 => {
-            // Ensure that the label is as expected.
-            let label_found = vals[0];
-            if label_found != label {
-                return Err(anyhow!(format!(
-                    "expected label {}, found {}",
-                    label, label_found
-                )));
-            }
-
-            Ok(vals[1].to_string())
+/// Check the arguments hash map if all required arguments are present
+pub fn check_required_args(
+    args: &HashMap<String, String>,
+    label: &str,
+    required: &[&str],
+) -> Result<(), anyhow::Error> {
+    for &r in required {
+        if !args.contains_key(r) {
+            return Err(anyhow!(format!("{label} is missing argument: {r}")));
         }
-        _ => Err(anyhow!(format!("invalid argument format: {s}"))),
     }
+
+    Ok(())
+}
+
+/// Check the arguments hash map if any unknown arguments exist
+pub fn check_unknown_args(args: HashMap<String, String>, label: &str) -> Result<(), anyhow::Error> {
+    if !args.is_empty() {
+        let unknown_args: Vec<String> = args
+            .into_iter()
+            .map(|arg| format!("{}={}", arg.0, arg.1))
+            .collect();
+        return Err(anyhow!(format!(
+            "unknown {} arguments: {:?}",
+            label, unknown_args
+        )));
+    }
+
+    Ok(())
 }
 
 /// A wrapper of all data associated with the bootloader argument.
@@ -102,11 +113,28 @@ mod bootloader {
         type Err = anyhow::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let args = args_parse(s.to_string(), "bootloader", Some(3))?;
+            let mut args = parse_args(s.to_string())?;
+            check_required_args(&args, "bootloader", &["efi", "variable-store", "create"])?;
 
-            let fw = BootloaderFw::from_str(&args[0])?;
-            let v = Vstore::from_str(&args[1])?;
-            let action = Action::from_str(&args[2])?;
+            let fw = args.remove("efi").unwrap();
+            if !fw.is_empty() {
+                return Err(anyhow!(format!("unknown bootloader argument: efi={fw}")));
+            }
+
+            let v = args.remove("variable-store").unwrap();
+
+            let action = args.remove("create").unwrap();
+            if !action.is_empty() {
+                return Err(anyhow!(format!(
+                    "unknown bootloader argument: create={action}"
+                )));
+            }
+
+            check_unknown_args(args, "bootloader")?;
+
+            let fw = BootloaderFw::from_str("efi")?;
+            let v = Vstore::from_str(v.as_str())?;
+            let action = Action::from_str("create")?;
 
             Ok(Self {
                 fw,
@@ -143,10 +171,8 @@ mod bootloader {
         type Err = anyhow::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let value = val_parse(s, "variable-store")?;
-
             Ok(Self(
-                PathBuf::from_str(&value).context("variable-store argument not a valid path")?,
+                PathBuf::from_str(s).context("variable-store argument not a valid path")?,
             ))
         }
     }
@@ -172,6 +198,146 @@ mod bootloader {
 }
 
 mod tests {
+    #[test]
+    fn virtio_blk_argument_ordering() {
+        let in_order =
+            super::parse_args(String::from("path=/Users/user/disk-image.raw,format=raw")).unwrap();
+        let out_of_order =
+            super::parse_args(String::from("format=raw,path=/Users/user/disk-image.raw")).unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert("path".to_string(), "/Users/user/disk-image.raw".to_string());
+        expected.insert("format".to_string(), "raw".to_string());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
+    fn virtio_net_argument_ordering() {
+        let in_order = super::parse_args(String::from(
+            "unixSocketPath=/Users/user/vm-network.sock,mac=ff:ff:ff:ff:ff:ff",
+        ))
+        .unwrap();
+        let out_of_order = super::parse_args(String::from(
+            "mac=ff:ff:ff:ff:ff:ff,unixSocketPath=/Users/user/vm-network.sock",
+        ))
+        .unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert(
+            "unixSocketPath".to_string(),
+            "/Users/user/vm-network.sock".to_string(),
+        );
+        expected.insert("mac".to_string(), "ff:ff:ff:ff:ff:ff".to_string());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
+    fn virtio_vsock_argument_ordering() {
+        let in_order = super::parse_args(String::from(
+            "port=1025,socketURL=/Users/user/vsock2.sock,listen",
+        ))
+        .unwrap();
+        let out_of_order = super::parse_args(String::from(
+            "port=1025,listen,socketURL=/Users/user/vsock2.sock",
+        ))
+        .unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert("port".to_string(), "1025".to_string());
+        expected.insert(
+            "socketURL".to_string(),
+            "/Users/user/vsock2.sock".to_string(),
+        );
+        expected.insert("listen".to_string(), String::new());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
+    fn virtio_fs_argument_ordering() {
+        let in_order = super::parse_args(String::from(
+            "sharedDir=/Users/user/shared-dir,mountTag=MOUNT_TAG",
+        ))
+        .unwrap();
+        let out_of_order = super::parse_args(String::from(
+            "mountTag=MOUNT_TAG,sharedDir=/Users/user/shared-dir",
+        ))
+        .unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert(
+            "sharedDir".to_string(),
+            "/Users/user/shared-dir".to_string(),
+        );
+        expected.insert("mountTag".to_string(), "MOUNT_TAG".to_string());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
+    fn virtio_gpu_argument_ordering() {
+        let in_order = super::parse_args(String::from("height=50,width=25")).unwrap();
+        let out_of_order = super::parse_args(String::from("width=25,height=50")).unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert("height".to_string(), "50".to_string());
+        expected.insert("width".to_string(), "25".to_string());
+
+        assert_eq!(in_order, out_of_order);
+        assert_eq!(in_order, expected);
+    }
+
+    #[test]
+    fn argument_parsing() {
+        let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
+        let args = super::parse_args(s).unwrap();
+
+        let mut expected = std::collections::HashMap::new();
+        expected.insert("port".to_string(), "1025".to_string());
+        expected.insert(
+            "socketURL".to_string(),
+            "/Users/user/vsock2.sock".to_string(),
+        );
+        expected.insert("listen".to_string(), String::new());
+        assert_eq!(expected, args);
+    }
+
+    #[test]
+    fn required_args() {
+        let required = &["port", "socketURL"];
+        let s = String::from("port=1025,socketURL=/Users/user/vsock2.sock,listen");
+        let args = super::parse_args(s).unwrap();
+
+        assert_eq!(
+            super::check_required_args(&args, "", required).is_ok(),
+            true
+        );
+
+        let required = &["port", "wrong"];
+        assert_ne!(
+            super::check_required_args(&args, "", required).is_ok(),
+            true
+        );
+    }
+
+    #[test]
+    fn unknown_args() {
+        use std::collections::HashMap;
+
+        let args: HashMap<String, String> = HashMap::new();
+        assert_eq!(super::check_unknown_args(args, "").is_ok(), true);
+
+        let mut args: HashMap<String, String> = HashMap::new();
+        args.insert("foo".to_string(), "bar".to_string());
+        assert_ne!(super::check_unknown_args(args, "").is_ok(), true);
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     fn mac_cmdline_ordering_argtest() {

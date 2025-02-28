@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::cmdline::{args_parse, val_parse};
+use crate::cmdline::{check_required_args, check_unknown_args, parse_args};
 
 use std::{
     ffi::{c_char, CString},
@@ -29,8 +29,9 @@ extern "C" {
 }
 
 #[repr(u32)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum DiskImageFormat {
+    #[default]
     Raw = 0,
     Qcow2 = 1,
 }
@@ -71,7 +72,7 @@ impl FromStr for VirtioDeviceConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio", None)?;
+        let args: Vec<String> = s.split(',').map(|s| s.to_string()).collect();
 
         if args.is_empty() {
             return Err(anyhow!("no virtio device config found"));
@@ -116,7 +117,7 @@ impl KrunContextSet for VirtioDeviceConfig {
 }
 
 /// Configuration of a virtio-blk device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct BlkConfig {
     /// Path of the file to store as the root disk.
     pub path: PathBuf,
@@ -129,13 +130,21 @@ impl FromStr for BlkConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-blk", Some(2))?;
+        let mut blk_config = Self::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-blk", &["path"])?;
 
-        Ok(Self {
-            path: PathBuf::from_str(&val_parse(&args[0], "path")?)
-                .context("path argument not a valid path")?,
-            format: DiskImageFormat::from_str(val_parse(&args[1], "format")?.as_str())?,
-        })
+        let path = args.remove("path").unwrap();
+        blk_config.path =
+            PathBuf::from_str(path.as_str()).context("path argument not a valid path")?;
+
+        if let Some(f) = args.remove("format") {
+            blk_config.format = DiskImageFormat::from_str(f.as_str())?;
+        }
+
+        check_unknown_args(args, "virtio-blk")?;
+
+        Ok(blk_config)
     }
 }
 
@@ -178,10 +187,14 @@ impl FromStr for SerialConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-serial", Some(1))?;
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-serial", &["logFilePath"])?;
+
+        let log_file_path = args.remove("logFilePath").unwrap();
+        check_unknown_args(args, "virtio-serial")?;
 
         Ok(Self {
-            log_file_path: PathBuf::from_str(&val_parse(&args[0], "logFilePath")?)
+            log_file_path: PathBuf::from_str(log_file_path.as_str())
                 .context("logFilePath argument not a valid path")?,
         })
     }
@@ -203,7 +216,7 @@ impl KrunContextSet for SerialConfig {
 }
 
 /// Configuration of a virtio-vsock device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct VsockConfig {
     /// Port to connect to on VM.
     pub port: u32,
@@ -219,18 +232,29 @@ impl FromStr for VsockConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-vsock", Some(3))?;
+        let mut vsock_config = Self::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-vsock", &["port", "socketURL"])?;
 
-        let port = u32::from_str(&val_parse(&args[0], "port")?).context("port argument invalid")?;
-        let socket_url = PathBuf::from_str(&val_parse(&args[1], "socketURL")?)
+        let port = args.remove("port").unwrap();
+        vsock_config.port = u32::from_str(port.as_str()).context("port argument invalid")?;
+
+        let socket_url = args.remove("socketURL").unwrap();
+        vsock_config.socket_url = PathBuf::from_str(socket_url.as_str())
             .context("socketURL argument not a valid path")?;
-        let action = VsockAction::from_str(&args[2])?;
 
-        Ok(Self {
-            port,
-            socket_url,
-            action,
-        })
+        if let Some(v) = args.remove("listen") {
+            if !v.is_empty() {
+                return Err(anyhow!(format!(
+                    "unexpected value for virtio-vsock argument: listen={v}"
+                )));
+            }
+            vsock_config.action = VsockAction::from_str("listen")?
+        }
+
+        check_unknown_args(args, "virtio-vsock")?;
+
+        Ok(vsock_config)
     }
 }
 
@@ -253,8 +277,9 @@ impl KrunContextSet for VsockConfig {
 }
 
 /// virtio-vsock action.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum VsockAction {
+    #[default]
     Listen,
 }
 
@@ -272,7 +297,7 @@ impl FromStr for VsockAction {
 }
 
 /// Configuration of a virtio-net device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct NetConfig {
     /// Path to underlying gvproxy socket.
     pub unix_socket_path: PathBuf,
@@ -285,14 +310,21 @@ impl FromStr for NetConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-net", Some(2))?;
+        let mut net_config = Self::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-net", &["unixSocketPath", "mac"])?;
 
-        Ok(Self {
-            unix_socket_path: PathBuf::from_str(&val_parse(&args[0], "unixSocketPath")?)
-                .context("unixSocketPath argument not a valid path")?,
-            mac_address: MacAddress::from_str(&val_parse(&args[1], "mac")?)
-                .context("unable to parse mac address from argument")?,
-        })
+        let unix_socket_path = args.remove("unixSocketPath").unwrap();
+        net_config.unix_socket_path = PathBuf::from_str(unix_socket_path.as_str())
+            .context("unixSocketPath argument not a valid path")?;
+
+        let mac = args.remove("mac").unwrap();
+        net_config.mac_address = MacAddress::from_str(mac.as_str())
+            .context("unable to parse mac address from argument")?;
+
+        check_unknown_args(args, "virtio-net")?;
+
+        Ok(net_config)
     }
 }
 
@@ -321,7 +353,7 @@ impl KrunContextSet for NetConfig {
 }
 
 /// Configuration of a virtio-fs device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FsConfig {
     /// Shared directory with the host.
     pub shared_dir: PathBuf,
@@ -334,24 +366,21 @@ impl FromStr for FsConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-fs", None)?;
+        let mut fs_config = FsConfig::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-fs", &["sharedDir", "mountTag"])?;
 
-        if args.len() < 2 {
-            return Err(anyhow!(
-                "expected at least 2 arguments, found {}",
-                args.len()
-            ));
-        }
+        let shared_dir = args.remove("sharedDir").unwrap();
+        fs_config.shared_dir = PathBuf::from_str(shared_dir.as_str())
+            .context("sharedDir argument is not a valid path")?;
 
-        let shared_dir = PathBuf::from_str(&val_parse(&args[0], "sharedDir")?)
-            .context("sharedDir argument not a valid path")?;
-        let mount_tag = PathBuf::from_str(&val_parse(&args[1], "mountTag")?)
-            .context("mountTag argument not a valid path")?;
+        let mount_tag = args.remove("mountTag").unwrap();
+        fs_config.mount_tag =
+            PathBuf::from_str(mount_tag.as_str()).context("mountTag argument not a valid path")?;
 
-        Ok(Self {
-            shared_dir,
-            mount_tag,
-        })
+        check_unknown_args(args, "virtio-fs")?;
+
+        Ok(fs_config)
     }
 }
 
@@ -374,7 +403,7 @@ impl KrunContextSet for FsConfig {
 }
 
 /// Configuration of a virtio-gpu device.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct GpuConfig {
     /// Width (pixels).
     pub width: u32,
@@ -387,14 +416,25 @@ impl FromStr for GpuConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-gpu", Some(2))?;
+        let mut gpu_config = GpuConfig::default();
+        let mut args = parse_args(s.to_string())?;
+        check_required_args(&args, "virtio-gpu", &["height", "width"])?;
 
-        let width = u32::from_str(&val_parse(&args[0], "width")?)
-            .context("GPU width argument not a valid u32")?;
-        let height = u32::from_str(&val_parse(&args[1], "height")?)
-            .context("GPU height argument not a valid u32")?;
+        let width = args.remove("width").unwrap();
+        gpu_config.width = u32::from_str(width.as_str()).context(format!(
+            "GPU width argument out of range (0x0 - 0x{:x})",
+            u32::MAX
+        ))?;
 
-        Ok(Self { width, height })
+        let height = args.remove("height").unwrap();
+        gpu_config.height = u32::from_str(height.as_str()).context(format!(
+            "GPU height argument out of range (0x0 - 0x{:x})",
+            u32::MAX
+        ))?;
+
+        check_unknown_args(args, "virtio-gpu")?;
+
+        Ok(gpu_config)
     }
 }
 
@@ -410,12 +450,22 @@ impl FromStr for InputConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let args = args_parse(s.to_string(), "virtio-input", Some(1))?;
+        let args = parse_args(s.to_string())?;
 
-        match &args[0].to_lowercase()[..] {
+        if args.len() != 1 {
+            return Err(anyhow!("invalid virtio-input config: {s}"));
+        }
+
+        let (key, value) = args.into_iter().next().unwrap();
+        if !value.is_empty() {
+            return Err(anyhow!(format!(
+                "unexpected value for virtio-input argument: {key}={value}"
+            )));
+        }
+        match key.as_str() {
             "keyboard" => Ok(Self::Keyboard),
             "pointing" => Ok(Self::Pointing),
-            _ => Err(anyhow!("invalid virtio-input config")),
+            _ => Err(anyhow!("unknown virtio-input argument: {key}")),
         }
     }
 }
