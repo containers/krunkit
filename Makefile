@@ -15,6 +15,9 @@ debug: $(KRUNKIT_DEBUG)
 $(KRUNKIT_RELEASE):
 	cargo build --release
 ifeq ($(OS),Darwin)
+ifneq ($(LIBKRUN_EFI),)
+	install_name_tool -change libkrun-efi.dylib $(LIBKRUN_EFI) $@
+endif
 	codesign --entitlements krunkit.entitlements --force -s - $@
 endif
 
