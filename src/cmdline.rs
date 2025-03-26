@@ -42,6 +42,10 @@ pub struct Args {
     /// Log level for libkrun (0=off, 1=error, 2=warn, 3=info, 4=debug, 5 or higher=trace)
     #[arg(long = "krun-log-level", default_value_t = 3)]
     pub krun_log_level: u32,
+
+    /// Enable Nested Virtualization.
+    #[arg(long, short)]
+    pub nested: bool,
 }
 
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
