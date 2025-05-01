@@ -40,6 +40,17 @@ impl TryFrom<Args> for KrunContext {
         // Start by setting up the desired log level for libkrun.
         unsafe { krun_set_log_level(args.krun_log_level) };
 
+        let log_level = match args.krun_log_level {
+            0 => "off",
+            1 => "error",
+            2 => "warn",
+            3 => "info",
+            4 => "debug",
+            _ => "trace",
+        };
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(log_level))
+            .init();
+
         // Create a new context in libkrun. Store identifier to later use to configure VM
         // resources and devices.
         let id = unsafe { krun_create_ctx() };
