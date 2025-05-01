@@ -20,6 +20,7 @@ extern "C" {
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
     fn krun_set_smbios_oem_strings(ctx_id: u32, oem_strings: *const *const c_char) -> i32;
     fn krun_set_nested_virt(ctx_id: u32, enabled: bool) -> i32;
+    fn krun_check_nested_virt() -> i32;
     fn krun_start_enter(ctx_id: u32) -> i32;
 }
 
@@ -100,8 +101,16 @@ impl TryFrom<Args> for KrunContext {
 
         set_smbios_oem_strings(id, &args.oem_strings)?;
 
-        if args.nested && unsafe { krun_set_nested_virt(id, args.nested) } < 0 {
-            return Err(anyhow!("unable to set krun nested virtualization"));
+        if args.nested {
+            match unsafe { krun_check_nested_virt() } {
+                1 => {
+                    if unsafe { krun_set_nested_virt(id, args.nested) } < 0 {
+                        return Err(anyhow!("krun nested virtualization reported as supported, yet failed to enable"));
+                    }
+                }
+                0 => log::debug!("nested virtualization is not supported on this host. -n,--nested argument ignored"),
+                _ => return Err(anyhow!("unable to check nested virtualization is supported on this host")),
+            }
         }
 
         Ok(Self { id, args })
