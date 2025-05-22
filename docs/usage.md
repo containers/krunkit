@@ -42,10 +42,10 @@ specified using the `--device` flag.
 
 ### Disk
 
-The `virtio-blk` option adds a disk to a virtual machine. This disk is backed by a raw image file on the host
-machine. Note that the user can specify up to two virtio-blk devices on the command line. The first virtio-blk
-argument will be used as a virtual machine's root disk (`/dev/vda`). The second virtio-blk argument will be used
-as a virtual machine's data disk (`/dev/vdb`).
+The `virtio-blk` option adds a disk to a virtual machine. This disk is backed by an image file on the host
+machine. At least one virtio-blk device must be specified on the commandline. The first virtio-blk argument
+will be used as a virtual machine's root disk (`/dev/vda`). The subsequent virtio-blk arguments will be used
+as a virtual machine's data disk(s) (`/dev/vd[b-z]`).
 
 #### Arguments
 
@@ -54,7 +54,7 @@ as a virtual machine's data disk (`/dev/vdb`).
 
 #### Example
 
-This adds a virtio-blk device to a virtual machine which will be backed by a raw image at
+This adds a virtio-blk device to a virtual machine which will be backed by an image at
 `/Users/user/disk-image.raw`:
 
 ```
