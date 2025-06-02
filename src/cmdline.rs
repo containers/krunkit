@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{status::RestfulUriAddr, virtio::VirtioDeviceConfig};
+use crate::{status::RestfulUri, virtio::VirtioDeviceConfig};
 
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
@@ -29,7 +29,7 @@ pub struct Args {
 
     /// URI of the status/shutdown listener.
     #[arg(long = "restful-uri")]
-    pub restful_uri: Option<RestfulUriAddr>,
+    pub restful_uri: Option<RestfulUri>,
 
     /// GUI option for compatibility with vfkit (ignored).
     #[arg(long, default_value_t = false)]
@@ -514,8 +514,10 @@ mod tests {
 
         let restful_uri = args.restful_uri.expect("restful-uri argument not found");
 
-        assert_eq!(restful_uri.ip_addr, Ipv4Addr::new(127, 0, 0, 1));
-        assert_eq!(restful_uri.port, 49573);
+        assert_eq!(
+            restful_uri,
+            RestfulUri::Tcp(Ipv4Addr::new(127, 0, 0, 1), 49573)
+        );
 
         assert_eq!(args.gui, true);
         assert_eq!(args.krun_log_level, 5);

@@ -3,7 +3,7 @@
 use super::*;
 
 use crate::{
-    status::{get_shutdown_eventfd, status_listener},
+    status::{get_shutdown_eventfd, status_listener, RestfulUri},
     virtio::KrunContextSet,
 };
 
@@ -125,7 +125,9 @@ impl KrunContext {
         let shutdown_eventfd = unsafe { get_shutdown_eventfd(self.id) };
         let uri = self.args.restful_uri.clone();
 
-        thread::spawn(move || status_listener(shutdown_eventfd, uri).unwrap());
+        if uri != Some(RestfulUri::None) {
+            thread::spawn(move || status_listener(shutdown_eventfd, uri).unwrap());
+        }
 
         // Run the workload.
         if unsafe { krun_start_enter(self.id) } < 0 {
