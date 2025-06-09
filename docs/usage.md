@@ -14,9 +14,8 @@ Set the log level for libkrun. Supported values: 0=off, 1=error, 2=warn, 3=info 
 
 - `--restful-uri`
 
-The URI (address) of the RESTful service. If not specified, defaults to `tcp://localhost:8081`. `tcp` is the only
-valid scheme.
-
+The URI (address) of the RESTful service. If not specified, defaults to `tcp://localhost:8081`. Valid schemes are
+`tcp`, `none`, or `unix`. A scheme of `none` disables the RESTful service.
 ### Virtual Machine Resources
 
 - `--cpus`
