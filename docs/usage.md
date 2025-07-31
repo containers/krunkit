@@ -26,6 +26,12 @@ Number of vCPUs available to a virtual machine.
 
 Amount of RAM available to a virtual machine. Value is in MiB (mebibytes, 1024^2 bytes).
 
+- `--nested`
+
+Enable Nested Virtualization.
+
+Note: this requires an M3 or newer CPU and macOS 15+.
+
 #### Example
 
 This configures a virtual machine to use two vCPUs and 2048 MiB of RAM:
