@@ -133,7 +133,7 @@ fn handle_incoming_stream<T: Read + Write>(stream: &mut T, shutdown_fd: &mut Fil
                 println!("Error writing GET response: {e}");
             }
         }
-        Err(e) => println!("Error reading stream: {}", e),
+        Err(e) => println!("Error reading stream: {e}"),
     }
 }
 
