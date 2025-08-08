@@ -40,6 +40,19 @@ This configures a virtual machine to use two vCPUs and 2048 MiB of RAM:
 --cpus 2 --memory 2048
 ```
 
+## Bootloader Configuration
+
+### EFI bootloader
+
+`--bootloader efi` allows booting a disk image using EFI, which removes the need for providing external kernel/initrd/... jthe disk image bootloader will be started by the EFI firmware, which will in turn know which kernel it should be booting.
+
+#### Arguments
+- `variable-store`: path to a file which EFI can use to store its variables
+- `create`: indicate whether the `variable-store` file hould be created or not if missing.
+
+> [!NOTE]
+> This option is ignored by the commandline. It is added purely for vfkit parity. `krunkit` only supports the EFI bootloader configuration and handles all associated actions without further user configuration.
+
 ## Device Configuration
 
 Various virtio devices can be added to a virtual machine. They are all paravirtualized devices that can be
