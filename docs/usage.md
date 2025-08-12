@@ -85,17 +85,51 @@ The `virtio-net` option adds a network interface to a virtual machine.
 
 #### Arguments
 
+Arguments to create a virtio-net device that has offloading enabled by default and will send a VFKIT magic
+value after establishing the connection:
 - `unixSocketPath`: Path to a UNIX socket to attach to the guest network interface.
 - `mac`: MAC address of a virtual machine.
 
+Arguments to create a virtio-net device with a unix datagram or unix stream socket backend:
+- `type`: Unix socket type:
+    - `unixgram`: unix datagram socket-based backend such as gvproxy or vmnet-helper.
+    - `unixstream`: unix stream socket-based userspace network proxy such as passt or socket_vmnet.
+- `path`: Unix socket path. Mutually exclusive with the `fd=` option.
+- `fd`: Unix socket file descriptor. Mutually exclusive with the `path=` option.
+- `mac`: MAC address of a virtual machine.
+- `offloading`: (Optional) Whether or not to enable network offloading between the guest and host.
+Default value is `off`.
+- `vfkitMagic`: (Optional) Whether to send the vfkit magic value after establishing a network connection.
+Default value is `off`. Only supported with the `unixgram` type.
+
+> [!NOTE]
+> The `unixSocketPath`, `type={unixgram, unixstream}` arguments are mutually exclusive and cannot be used together.
+
 #### Example
 
-This adds a virtio-net device to a virtual machine and redirects all guest network traffic to the corresponding
-socket at `/Users/user/vm-network.sock` with a MAC address of `ff:ff:ff:ff:ff:ff`:
+If you want to use a tool like vmnet-helper as your backend, you'll be interested in using the `type=unixgram`
+argument. This will create a virtio-net device and redirect all guest network traffic to the corresponding socket.
+Here, we're not going to use any of the optional arguments. Therefore, offloading will be disabled by default
+and the vfkit magic value won't be sent when the connection is established:
 
 ```
---device virtio-net,unixSocketPath=/Users/user/vm-network.sock,mac=ff:ff:ff:ff:ff:ff
+--device virtio-net,type=unixgram,path=/Users/user/vm-network.sock,mac=ff:ff:ff:ff:ff:ff
 ```
+
+If you want to use gvproxy instead, you're going to want to use some of the optional arguments krunkit provides.
+We're going to want to enable offloading, and if gvproxy is running in vfkit mode, we'll also want to send the
+vfkit magic value when the connection establishes:
+
+```
+--device virtio-net,type=unixgram,path=/Users/user/vm-network.sock,mac=ff:ff:ff:ff:ff:ff,offloading=on,vfkitMagic=on
+```
+
+You can also use a network proxy such as passt by using the `type=unixstream` argument:
+```
+--device virtio-net,type=unixstream,fd=<passt_fd>,mac=ff:ff:ff:ff:ff:ff,offloading=true
+```
+
+To see performance implications of choosing offloading vs. not offloading, see [this table](#offloading-performance-implications)
 
 ### Serial Port
 
@@ -174,3 +208,25 @@ Response: `VirtualMachineState{Running, Stopped}`
 `POST /vm/state` `{ "state": "Stop" }`
 
 Response: `VirtualMachineStateStopped`
+
+## Offloading Performance Implications
+
+The table below provides some data on how offloading effects the gvproxy and vmnet-helper backends:
+
+#### vment-helper offloading
+
+| network       | vm       | offloading | iper3         | iperf3 -R     |
+|---------------|--------- |------------|---------------|---------------|
+| vmnet-helper  | krunkit  | true       |  1.38 Gbits/s | 46.20 Gbits/s |
+| vmnet-helper  | krunkit  | false      | 10.10 Gbits/s |  8.38 Gbits/s |
+| vmnet-helper  | vfkit    | true       |  4.27 Gbits/s |  8.09 Gbits/s |
+| vmnet-helper  | vfkit    | false      | 10.70 Gbits/s |  8.41 Gbits/s |
+
+#### gvproxy offloading
+
+| network       | vm       | offloading | iper3         | iperf3 -R     |
+|---------------|--------- |------------|---------------|---------------|
+| gvproxy       | krunkit  | true       |  1.40 Gbits/s | 20.00 Gbits/s |
+| gvproxy       | krunkit  | false      |  1.47 Gbits/s |  2.58 Gbits/s |
+| gvproxy       | vfkit    | false      |  1.43 Gbits/s |  2.84 Gbits/s |
+
