@@ -7,7 +7,7 @@ ifeq ($(PREFIX),)
     PREFIX := /usr/local
 endif
 
-.PHONY: install clean
+.PHONY: install clean $(KRUNKIT_RELEASE) $(KRUNKIT_DEBUG)
 
 all: $(KRUNKIT_RELEASE)
 
