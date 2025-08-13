@@ -3,7 +3,7 @@
 use crate::cmdline::{check_required_args, check_unknown_args, parse_args};
 
 use std::{
-    ffi::{c_char, CString},
+    ffi::{c_char, c_int, CString},
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
     str::FromStr,
@@ -11,6 +11,28 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use mac_address::MacAddress;
+
+/* Taken from uapi/linux/virtio_net.h */
+const NET_FEATURE_CSUM: u32 = 1 << 0;
+const NET_FEATURE_GUEST_CSUM: u32 = 1 << 1;
+const NET_FEATURE_GUEST_TSO4: u32 = 1 << 7;
+const NET_FEATURE_GUEST_TSO6: u32 = 1 << 8;
+const NET_FEATURE_GUEST_UFO: u32 = 1 << 10;
+const NET_FEATURE_HOST_TSO4: u32 = 1 << 11;
+const NET_FEATURE_HOST_TSO6: u32 = 1 << 12;
+const NET_FEATURE_HOST_UFO: u32 = 1 << 14;
+/*
+ * These are the flags enabled by default on each virtio-net instance
+ * before the introduction of "krun_add_net_*". They are now used in
+ * the legacy API ("krun_set_passt_fd" and "krun_set_gvproxy_path")
+ * for compatiblity reasons.
+ */
+const NET_COMPAT_FEATURES: u32 = NET_FEATURE_CSUM
+    | NET_FEATURE_GUEST_CSUM
+    | NET_FEATURE_GUEST_TSO4
+    | NET_FEATURE_GUEST_UFO
+    | NET_FEATURE_HOST_TSO4
+    | NET_FEATURE_HOST_UFO;
 
 #[link(name = "krun-efi")]
 extern "C" {
@@ -26,6 +48,14 @@ extern "C" {
     fn krun_set_gvproxy_path(ctx_id: u32, c_path: *const c_char) -> i32;
     fn krun_set_net_mac(ctx_id: u32, c_mac: *const u8) -> i32;
     fn krun_set_console_output(ctx_id: u32, c_filepath: *const c_char) -> i32;
+    fn krun_add_net_unixgram(
+        ctx_id: u32,
+        c_path: *const c_char,
+        fd: c_int,
+        c_mac: *const u8,
+        features: u32,
+        flags: u32,
+    ) -> i32;
 }
 
 #[repr(u32)]
@@ -296,11 +326,21 @@ impl FromStr for VsockAction {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SocketConfig {
+    /// Legacy socket config for creating virtio-net device using gvproxy in
+    /// vfkit mode.
+    UnixSocketPath(PathBuf),
+    /// Socket config for creating an independent virtio-net device with a
+    /// unixgram-based backend.
+    UnixGram(PathBuf, bool, bool),
+}
+
 /// Configuration of a virtio-net device.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NetConfig {
-    /// Path to underlying gvproxy socket.
-    pub unix_socket_path: PathBuf,
+    /// Socket configuration
+    pub socket: SocketConfig,
 
     /// Network MAC address.
     pub mac_address: MacAddress,
@@ -310,17 +350,45 @@ impl FromStr for NetConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut net_config = Self::default();
         let mut args = parse_args(s.to_string())?;
-        check_required_args(&args, "virtio-net", &["unixSocketPath", "mac"])?;
 
-        let unix_socket_path = args.remove("unixSocketPath").unwrap();
-        net_config.unix_socket_path = PathBuf::from_str(unix_socket_path.as_str())
-            .context("unixSocketPath argument not a valid path")?;
+        let socket = if args.contains_key("unixSocketPath") {
+            check_required_args(&args, "virtio-net", &["mac"])?;
+            let path = args.remove("unixSocketPath").unwrap();
+
+            SocketConfig::UnixSocketPath(
+                PathBuf::from_str(path.as_str())
+                    .context("unixSocketPath argument is not a valid path")?,
+            )
+        } else if args.contains_key("unixgram") {
+            check_required_args(&args, "virtio-net", &["mac", "offloading"])?;
+            let path = args.remove("unixgram").unwrap();
+            let offloading = args.remove("offloading").unwrap();
+            let send_vfkit_magic = if args.contains_key("vfkitMagic") {
+                args.remove("vfkitMagic").unwrap().parse::<bool>()?
+            } else {
+                false
+            };
+
+            SocketConfig::UnixGram(
+                PathBuf::from_str(path.as_str())
+                    .context("unixSocketPath argument is not a valid path")?,
+                offloading.parse::<bool>()?,
+                send_vfkit_magic,
+            )
+        } else {
+            return Err(anyhow!(
+                "virtio-net device is missing a socket path argument"
+            ));
+        };
 
         let mac = args.remove("mac").unwrap();
-        net_config.mac_address = MacAddress::from_str(mac.as_str())
-            .context("unable to parse mac address from argument")?;
+
+        let net_config = NetConfig {
+            socket,
+            mac_address: MacAddress::from_str(mac.as_str())
+                .context("unable to parse mac address from argument")?,
+        };
 
         check_unknown_args(args, "virtio-net")?;
 
@@ -331,15 +399,39 @@ impl FromStr for NetConfig {
 /// Set the gvproxy's path and network MAC address.
 impl KrunContextSet for NetConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
-        let path_cstr = path_to_cstring(&self.unix_socket_path)?;
-        let mac = self.mac_address.bytes();
+        match &self.socket {
+            SocketConfig::UnixSocketPath(path) => {
+                let path_cstr = path_to_cstring(path)?;
+                if krun_set_gvproxy_path(id, path_cstr.as_ptr()) < 0 {
+                    return Err(anyhow!(format!(
+                        "unable to set gvproxy path {}",
+                        path_cstr.into_string().unwrap(),
+                    )));
+                }
+            }
+            SocketConfig::UnixGram(path, offloading, send_vfkit_magic) => {
+                let path_cstr = path_to_cstring(path)?;
+                let features = if *offloading { NET_COMPAT_FEATURES } else { 0 };
 
-        if krun_set_gvproxy_path(id, path_cstr.as_ptr()) < 0 {
-            return Err(anyhow!(format!(
-                "unable to set gvproxy path {}",
-                &self.unix_socket_path.display()
-            )));
+                if krun_add_net_unixgram(
+                    id,
+                    path_cstr.as_ptr(),
+                    -1,
+                    self.mac_address.bytes().as_ptr(),
+                    features,
+                    // Send the VFKIT magic after establishing the connection,
+                    // as required by gvproxy in vfkit mode.
+                    *send_vfkit_magic as u32,
+                ) < 0
+                {
+                    return Err(anyhow!(format!(
+                        "unable to add unixgram {}",
+                        path_cstr.into_string().unwrap(),
+                    )));
+                }
+            }
         }
+        let mac = self.mac_address.bytes();
 
         if krun_set_net_mac(id, mac.as_ptr()) < 0 {
             return Err(anyhow!(format!(

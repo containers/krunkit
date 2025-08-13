@@ -19,10 +19,16 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Install dependencies
-        run: brew tap slp/krunkit && brew install virglrenderer clang-format libkrun-efi
+        run: brew tap slp/krunkit && brew install virglrenderer clang-format
+
+      - name: Clone libkrun source
+        run: git clone https://www.github.com/containers/libkrun.git ~/libkrun
+
+      - name: Build libkrun source
+        run: cd ~/libkrun && make EFI=1 NET=1 BLK=1 GPU=1 && sudo make EFI=1 NET=1 BLK=1 GPU=1 install && cd ~/
 
       - name: Build
-        run: cargo build --release --verbose
+        run: make LIBKRUN_EFI=/usr/local/lib/libkrun-efi.dylib
 
       - name: Test
         run: cargo test --release --verbose -- --show-output

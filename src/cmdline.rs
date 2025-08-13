@@ -380,6 +380,8 @@ mod tests {
             "virtio-gpu,width=800,height=600",
             "--device",
             "virtio-input,keyboard",
+            "--device",
+            "virtio-net,unixgram=/Users/user/net.sock,mac=00:00:00:00:00:00,offloading=true,vfkitMagic=true",
             "--restful-uri",
             "tcp://localhost:49573",
             "--gui",
@@ -388,6 +390,23 @@ mod tests {
         ];
 
         let mut args = Args::try_parse_from(cmdline).unwrap();
+
+        let net = args
+            .devices
+            .pop()
+            .expect("expected 11th virtio device config");
+        if let VirtioDeviceConfig::Net(net) = net {
+            if let SocketConfig::UnixGram(path, offloading, send_vfkit_magic) = net.socket {
+                assert_eq!(path, PathBuf::from_str("/Users/user/net.sock").unwrap());
+                assert_eq!(offloading, true);
+                assert_eq!(send_vfkit_magic, true);
+            } else {
+                panic!("expected virtio-net device to use the unixgram argument");
+            }
+            assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
+        } else {
+            panic!("expected virtio-net device as 11th device config argument");
+        }
 
         let input = args
             .devices
@@ -441,10 +460,11 @@ mod tests {
             .pop()
             .expect("expected 6th virtio device config");
         if let VirtioDeviceConfig::Net(net) = net {
-            assert_eq!(
-                net.unix_socket_path,
-                PathBuf::from_str("/Users/user/net.sock").unwrap()
-            );
+            if let SocketConfig::UnixSocketPath(path) = net.socket {
+                assert_eq!(path, PathBuf::from_str("/Users/user/net.sock").unwrap());
+            } else {
+                panic!("expected virtio-net device to use the unixSocketPath argument");
+            }
             assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
         } else {
             panic!("expected virtio-net device as 6th device config argument");

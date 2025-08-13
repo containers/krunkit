@@ -85,8 +85,19 @@ The `virtio-net` option adds a network interface to a virtual machine.
 
 #### Arguments
 
+Legacy arguments to create a virtio-net device that uses gvproxy in vfkit mode:
 - `unixSocketPath`: Path to a UNIX socket to attach to the guest network interface.
 - `mac`: MAC address of a virtual machine.
+
+Arguments to create an independent device with a unixgram-based backend:
+- `unixgram`: Path to a UNIX datagram socket to attach to the guest network interface.
+- `mac`: MAC address of a virtual machine.
+- `offloading`: Whether or not to enable network offloading between the guest and host. 
+- `vfkitMagic`: (Optional) Whether to send the vfkit magic value after establishing a network connection.
+Default value is `false`.
+
+> [!NOTE]
+> The `unixSocketPath` and `unixgram` arguments are mutually exclusive and cannot be used together.
 
 #### Example
 
@@ -95,6 +106,14 @@ socket at `/Users/user/vm-network.sock` with a MAC address of `ff:ff:ff:ff:ff:ff
 
 ```
 --device virtio-net,unixSocketPath=/Users/user/vm-network.sock,mac=ff:ff:ff:ff:ff:ff
+```
+
+This adds a virtio-net device and redirects all guest network traffic like the example above. However, this
+will use the `unixgram` argument and enable offloading. By enabling offloading alongside tools like
+`vmnet-helper`, it may increase host-to-vm throughput performance.
+
+```
+--device virtio-net,unixgram=/Users/user/vmnetwork.sock,mac=ff:ff:ff:ff:ff:ff,offloading=true
 ```
 
 ### Serial Port
