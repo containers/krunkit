@@ -334,17 +334,17 @@ impl KrunContextSet for NetConfig {
         let path_cstr = path_to_cstring(&self.unix_socket_path)?;
         let mac = self.mac_address.bytes();
 
-        if krun_set_gvproxy_path(id, path_cstr.as_ptr()) < 0 {
-            return Err(anyhow!(format!(
-                "unable to set gvproxy path {}",
-                &self.unix_socket_path.display()
-            )));
-        }
-
         if krun_set_net_mac(id, mac.as_ptr()) < 0 {
             return Err(anyhow!(format!(
                 "unable to set net MAC address {}",
                 self.mac_address
+            )));
+        }
+
+        if krun_set_gvproxy_path(id, path_cstr.as_ptr()) < 0 {
+            return Err(anyhow!(format!(
+                "unable to set gvproxy path {}",
+                &self.unix_socket_path.display()
             )));
         }
 
