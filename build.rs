@@ -2,5 +2,10 @@
 
 fn main() {
     #[cfg(target_os = "macos")]
-    println!("cargo:rustc-link-search=/opt/homebrew/lib");
+    {
+        match std::env::var_os("LIBKRUN_EFI") {
+            Some(path) => println!("cargo:rustc-link-search={}", path.into_string().unwrap()),
+            None => println!("cargo:rustc-link-search=/opt/homebrew/lib"),
+        }
+    }
 }
