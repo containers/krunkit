@@ -52,7 +52,6 @@ extern "C" {
     ) -> i32;
     fn krun_add_vsock_port(ctx_id: u32, port: u32, c_filepath: *const c_char) -> i32;
     fn krun_add_virtiofs(ctx_id: u32, c_tag: *const c_char, c_path: *const c_char) -> i32;
-    fn krun_set_gvproxy_path(ctx_id: u32, c_path: *const c_char) -> i32;
     fn krun_set_net_mac(ctx_id: u32, c_mac: *const u8) -> i32;
     fn krun_set_console_output(ctx_id: u32, c_filepath: *const c_char) -> i32;
     fn krun_add_net_unixgram(
@@ -351,9 +350,6 @@ pub struct SocketConfig {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SocketType {
-    /// Legacy socket type for creating virtio-net device using gvproxy in
-    /// vfkit mode.
-    UnixSocketPath,
     /// Socket type for creating an independent virtio-net device with a
     /// unixgram-based backend.
     UnixGram,
@@ -486,15 +482,6 @@ fn parse_socket_config(
 impl KrunContextSet for NetConfig {
     unsafe fn krun_ctx_set(&self, id: u32) -> Result<(), anyhow::Error> {
         match &self.socket_type {
-            SocketType::UnixSocketPath => {
-                let path_cstr = path_to_cstring(&self.socket_config.path.clone().unwrap())?;
-                if krun_set_gvproxy_path(id, path_cstr.as_ptr()) < 0 {
-                    return Err(anyhow!(format!(
-                        "unable to set gvproxy path {}",
-                        path_cstr.into_string().unwrap(),
-                    )));
-                }
-            }
             SocketType::UnixGram => {
                 let features = if self.socket_config.offloading {
                     COMPAT_NET_FEATURES
