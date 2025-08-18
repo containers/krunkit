@@ -52,7 +52,6 @@ extern "C" {
     ) -> i32;
     fn krun_add_vsock_port(ctx_id: u32, port: u32, c_filepath: *const c_char) -> i32;
     fn krun_add_virtiofs(ctx_id: u32, c_tag: *const c_char, c_path: *const c_char) -> i32;
-    fn krun_set_net_mac(ctx_id: u32, c_mac: *const u8) -> i32;
     fn krun_set_console_output(ctx_id: u32, c_filepath: *const c_char) -> i32;
     fn krun_add_net_unixgram(
         ctx_id: u32,
@@ -546,14 +545,6 @@ impl KrunContextSet for NetConfig {
                     )));
                 }
             }
-        }
-        let mac = self.mac_address.bytes();
-
-        if krun_set_net_mac(id, mac.as_ptr()) < 0 {
-            return Err(anyhow!(format!(
-                "unable to set net MAC address {}",
-                self.mac_address
-            )));
         }
 
         Ok(())
