@@ -2,7 +2,12 @@
 
 use crate::{status::RestfulUri, virtio::VirtioDeviceConfig};
 
-use std::{collections::HashMap, path::PathBuf, str::FromStr};
+use std::{
+    collections::HashMap,
+    ffi::{c_char, CString},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
@@ -100,6 +105,26 @@ pub fn check_unknown_args(args: HashMap<String, String>, label: &str) -> Result<
     }
 
     Ok(())
+}
+
+/// Parse a string slice and convert it to a boolean if possible. In addition to "true" and "false"
+/// being valid strings, "on" and "off" are also valid.
+pub fn parse_boolean(value: &str) -> Result<bool, anyhow::Error> {
+    match value {
+        "true" | "on" => Ok(true),
+        "false" | "off" => Ok(false),
+        _ => Err(anyhow!("invalid boolean value {value}")),
+    }
+}
+
+/// Convert a CString value to a pointer. If the string is empty, the function will return a NULL
+/// ptr.
+pub fn cstring_to_ptr(value: &CString) -> *const c_char {
+    if value.is_empty() {
+        std::ptr::null()
+    } else {
+        value.as_ptr()
+    }
 }
 
 /// A wrapper of all data associated with the bootloader argument.
@@ -380,6 +405,16 @@ mod tests {
             "virtio-gpu,width=800,height=600",
             "--device",
             "virtio-input,keyboard",
+            "--device",
+            "virtio-net,type=unixgram,path=/Users/user/net.sock,mac=00:00:00:00:00:00,offloading=true,vfkitMagic=off",
+            "--device",
+            "virtio-net,type=unixgram,fd=4,mac=00:00:00:00:00:00",
+            "--device",
+            "virtio-net,type=unixstream,path=/Users/user/net.sock,mac=00:00:00:00:00:00,offloading=on",
+            "--device",
+            "virtio-net,type=unixstream,fd=4,mac=00:00:00:00:00:00,offloading=off",
+            "--device",
+            "virtio-net,type=unixstream,fd=4,mac=00:00:00:00:00:00",
             "--restful-uri",
             "tcp://localhost:49573",
             "--gui",
@@ -388,6 +423,102 @@ mod tests {
         ];
 
         let mut args = Args::try_parse_from(cmdline).unwrap();
+
+        let net = args
+            .devices
+            .pop()
+            .expect("expected 15th virtio device config");
+        if let VirtioDeviceConfig::Net(net) = net {
+            if let SocketType::UnixStream = net.socket_type {
+                assert_eq!(net.socket_config.path, None,);
+                assert_eq!(net.socket_config.fd, Some(4));
+                assert_eq!(net.socket_config.offloading, false);
+                assert_eq!(net.socket_config.send_vfkit_magic, false);
+            } else {
+                panic!("expected virtio-net device to use the unixstream argument");
+            }
+            assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
+        } else {
+            panic!("expected virtio-net device as 15th device config argument");
+        }
+
+        let net = args
+            .devices
+            .pop()
+            .expect("expected 14th virtio device config");
+        if let VirtioDeviceConfig::Net(net) = net {
+            if let SocketType::UnixStream = net.socket_type {
+                assert_eq!(net.socket_config.path, None,);
+                assert_eq!(net.socket_config.fd, Some(4));
+                assert_eq!(net.socket_config.offloading, false);
+                assert_eq!(net.socket_config.send_vfkit_magic, false);
+            } else {
+                panic!("expected virtio-net device to use the unixstream argument");
+            }
+            assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
+        } else {
+            panic!("expected virtio-net device as 14th device config argument");
+        }
+
+        let net = args
+            .devices
+            .pop()
+            .expect("expected 13th virtio device config");
+        if let VirtioDeviceConfig::Net(net) = net {
+            if let SocketType::UnixStream = net.socket_type {
+                assert_eq!(
+                    net.socket_config.path,
+                    Some(PathBuf::from_str("/Users/user/net.sock").unwrap())
+                );
+                assert_eq!(net.socket_config.fd, None);
+                assert_eq!(net.socket_config.offloading, true);
+                assert_eq!(net.socket_config.send_vfkit_magic, false);
+            } else {
+                panic!("expected virtio-net device to use the unixstream argument");
+            }
+            assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
+        } else {
+            panic!("expected virtio-net device as 13th device config argument");
+        }
+
+        let net = args
+            .devices
+            .pop()
+            .expect("expected 12th virtio device config");
+        if let VirtioDeviceConfig::Net(net) = net {
+            if let SocketType::UnixGram = net.socket_type {
+                assert_eq!(net.socket_config.path, None);
+                assert_eq!(net.socket_config.fd, Some(4));
+                assert_eq!(net.socket_config.offloading, false);
+                assert_eq!(net.socket_config.send_vfkit_magic, false);
+            } else {
+                panic!("expected virtio-net device to use the unixgram argument");
+            }
+            assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
+        } else {
+            panic!("expected virtio-net device as 12th device config argument");
+        }
+
+        let net = args
+            .devices
+            .pop()
+            .expect("expected 11th virtio device config");
+        if let VirtioDeviceConfig::Net(net) = net {
+            if let SocketType::UnixGram = net.socket_type {
+                assert_eq!(
+                    net.socket_config.path,
+                    Some(PathBuf::from_str("/Users/user/net.sock").unwrap())
+                );
+                assert_eq!(net.socket_config.fd, None);
+                assert_eq!(net.socket_config.offloading, true);
+                assert_eq!(net.socket_config.send_vfkit_magic, false);
+            } else {
+                panic!("expected virtio-net device to use the unixgram argument");
+            }
+            assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
+        } else {
+            panic!("expected virtio-net device as 11th device config argument");
+        }
 
         let input = args
             .devices
@@ -441,10 +572,17 @@ mod tests {
             .pop()
             .expect("expected 6th virtio device config");
         if let VirtioDeviceConfig::Net(net) = net {
-            assert_eq!(
-                net.unix_socket_path,
-                PathBuf::from_str("/Users/user/net.sock").unwrap()
-            );
+            if let SocketType::UnixGram = net.socket_type {
+                assert_eq!(
+                    net.socket_config.path,
+                    Some(PathBuf::from_str("/Users/user/net.sock").unwrap())
+                );
+                assert_eq!(net.socket_config.fd, None);
+                assert_eq!(net.socket_config.offloading, true);
+                assert_eq!(net.socket_config.send_vfkit_magic, true);
+            } else {
+                panic!("expected virtio-net device to use the unixSocketPath argument");
+            }
             assert_eq!(net.mac_address, MacAddress::new([0, 0, 0, 0, 0, 0]));
         } else {
             panic!("expected virtio-net device as 6th device config argument");
