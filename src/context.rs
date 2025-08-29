@@ -129,8 +129,21 @@ impl KrunContext {
             thread::spawn(move || status_listener(shutdown_eventfd, uri).unwrap());
         }
 
+        // If the user provides a pidfile path, wait until the last second before running the VM to
+        // write to it. We want to wait until the last minute to avoid scenarios where we write the
+        // PID to the file, only for the command to be incorrect or for parsing to fail shortly
+        // after. This could mislead users to belive the guest has started when it hasn't.
+        if let Some(pidfile) = &self.args.pidfile {
+            let pid = std::process::id();
+            std::fs::write(pidfile, pid.to_string())?;
+        }
+
         // Run the workload.
         if unsafe { krun_start_enter(self.id) } < 0 {
+            if let Some(pidfile) = &self.args.pidfile {
+                // Since the VM never started, remove the pidfile.
+                std::fs::remove_file(pidfile)?;
+            }
             return Err(anyhow!("unable to begin running krun workload"));
         }
 

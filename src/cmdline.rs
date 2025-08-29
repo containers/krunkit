@@ -51,6 +51,10 @@ pub struct Args {
     /// Enable Nested Virtualization.
     #[arg(long, short)]
     pub nested: bool,
+
+    /// Specify a pidfile path.
+    #[arg(long)]
+    pub pidfile: Option<PathBuf>,
 }
 
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
