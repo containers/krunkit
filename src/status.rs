@@ -26,9 +26,9 @@ const HTTP_STOPPING: &str =
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum UriScheme {
-    #[default]
     Tcp,
     Unix,
+    #[default]
     None,
 }
 
@@ -101,7 +101,7 @@ fn parse_tcp_input(input: &str) -> Result<(Ipv4Addr, u16), anyhow::Error> {
 
 impl Default for RestfulUri {
     fn default() -> Self {
-        Self::Tcp(Ipv4Addr::new(127, 0, 0, 1), 8081)
+        Self::None
     }
 }
 
