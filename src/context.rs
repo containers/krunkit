@@ -7,11 +7,16 @@ use crate::{
     virtio::KrunContextSet,
 };
 
-use std::ffi::{c_char, CString};
-use std::os::fd::RawFd;
+use std::os::fd::{AsRawFd, RawFd};
 use std::{convert::TryFrom, ptr, thread};
+use std::{
+    ffi::{c_char, CString},
+    fs::OpenOptions,
+    io,
+};
 
 use anyhow::{anyhow, Context};
+use env_logger::{Builder, Env, Target};
 
 #[link(name = "krun-efi")]
 extern "C" {
@@ -61,9 +66,17 @@ impl TryFrom<Args> for KrunContext {
         // Set the default log level to INFO.
         let log_level = args.krun_log_level.unwrap_or(3);
 
-        unsafe {
+        let (fd, target) = match args.log_file {
+            Some(ref path) => {
+                let file = OpenOptions::new().append(true).create(true).open(path)?;
+                (file.as_raw_fd(), Target::Pipe(Box::new(file)))
+            }
+            None => (io::stderr().as_raw_fd(), Target::Stderr),
+        };
+
+        let ret = unsafe {
             krun_init_log(
-                -1, /* KRUN_LOG_TARGET_DEFAULT, which defaults to stderr */
+                fd,
                 log_level,
                 KRUN_LOG_STYLE_AUTO,
                 // If the user doesn't specify a log level, default to INFO and allow RUST_LOG
@@ -75,6 +88,9 @@ impl TryFrom<Args> for KrunContext {
                 },
             )
         };
+        if ret < 0 {
+            return Err(anyhow!("unable to init libkrun logs: {ret:?}"));
+        }
 
         let log_level = match log_level {
             0 => "off",
@@ -84,8 +100,19 @@ impl TryFrom<Args> for KrunContext {
             4 => "debug",
             _ => "trace",
         };
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(log_level))
-            .init();
+
+        let mut builder = if args.krun_log_level.is_some() {
+            let mut builder = Builder::new();
+            builder.parse_filters(log_level).parse_write_style("auto");
+            builder
+        } else {
+            env_logger::Builder::from_env(
+                Env::new()
+                    .default_filter_or(log_level)
+                    .default_write_style_or("auto"),
+            )
+        };
+        builder.target(target).init();
 
         // Create a new context in libkrun. Store identifier to later use to configure VM
         // resources and devices.
