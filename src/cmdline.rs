@@ -424,9 +424,14 @@ mod tests {
             "--gui",
             "--krun-log-level",
             "5",
+            "--pidfile",
+            "/tmp/krunkit.pid",
         ];
 
         let mut args = Args::try_parse_from(cmdline).unwrap();
+
+        let pidfile = args.pidfile.expect("pidfile argument not found");
+        assert_eq!(pidfile.to_str().unwrap(), "/tmp/krunkit.pid");
 
         let net = args
             .devices
