@@ -45,8 +45,8 @@ pub struct Args {
     pub oem_strings: Option<Vec<String>>,
 
     /// Log level for libkrun (0=off, 1=error, 2=warn, 3=info, 4=debug, 5 or higher=trace)
-    #[arg(long = "krun-log-level", default_value_t = 3)]
-    pub krun_log_level: u32,
+    #[arg(long = "krun-log-level")]
+    pub krun_log_level: Option<u32>,
 
     /// Enable Nested Virtualization.
     #[arg(long, short)]
@@ -667,6 +667,6 @@ mod tests {
         );
 
         assert_eq!(args.gui, true);
-        assert_eq!(args.krun_log_level, 5);
+        assert_eq!(args.krun_log_level, Some(5));
     }
 }
