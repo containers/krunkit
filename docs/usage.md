@@ -16,6 +16,11 @@ Set the log level for libkrun. Supported values: 0=off, 1=error, 2=warn, 3=info 
 
 The URI (address) of the RESTful service. If not specified, defaults to `none://`. Valid schemes are
 `tcp`, `none`, or `unix`. A scheme of `none` disables the RESTful service.
+
+- `--pidfile`
+
+Specify a path in which krunkit will write the PID to. The option does not provide any form of locking.
+
 ### Virtual Machine Resources
 
 - `--cpus`
