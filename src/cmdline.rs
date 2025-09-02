@@ -55,6 +55,10 @@ pub struct Args {
     /// Specify a pidfile path.
     #[arg(long)]
     pub pidfile: Option<PathBuf>,
+
+    /// Path of log file
+    #[arg(long = "log-file")]
+    pub log_file: Option<PathBuf>,
 }
 
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
