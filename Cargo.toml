@@ -1,7 +1,7 @@
 [package]
 name = "krunkit"
 version = "0.2.2"
-authors = ["Tyler Fanelli <tfanelli@redhat.com>"]
+authors = ["The krunkit Authors"]
 edition = "2021"
 description = "CLI tool to start VMs with libkrun"
 readme = "README.md"
