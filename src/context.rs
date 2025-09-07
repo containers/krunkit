@@ -63,12 +63,8 @@ impl TryFrom<Args> for KrunContext {
         let id = u32::try_from(id).unwrap();
 
         // Set the krun VM's number of vCPUs and amount of memory allocated.
-        //
-        // libkrun has a max of 8 vCPUs allowed.
         if args.cpus == 0 {
-            return Err(anyhow!("zero vcpus inputted (invalid)"));
-        } else if args.cpus > 8 {
-            return Err(anyhow!("too many vCPUs configured (max 8)"));
+            return Err(anyhow!("vcpus must be a minimum of 1 (0 is invalid)"));
         }
 
         if args.memory == 0 {
