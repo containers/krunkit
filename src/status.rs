@@ -122,18 +122,18 @@ fn handle_incoming_stream<T: Read + Write>(stream: &mut T, shutdown_fd: &mut Fil
             if request.contains("POST") {
                 // Send a VirtualMachineStateStopping message to the client.
                 if let Err(e) = stream.write_all(HTTP_STOPPING.as_bytes()) {
-                    println!("Error writing POST response: {e}");
+                    log::error!("Failure writing POST response: {e}");
                 }
 
                 // Shut down the VM.
                 if let Err(e) = shutdown_fd.write_all(&1u64.to_le_bytes()) {
-                    println!("Error writing to shutdown fd: {e}");
+                    log::error!("Failure writing to shutdown fd: {e}");
                 }
             } else if let Err(e) = stream.write_all(HTTP_RUNNING.as_bytes()) {
-                println!("Error writing GET response: {e}");
+                log::error!("Failure writing GET response: {e}");
             }
         }
-        Err(e) => println!("Error reading stream: {e}"),
+        Err(e) => log::error!("Failure reading stream: {e}"),
     }
 }
 

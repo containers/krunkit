@@ -12,6 +12,10 @@ will require a root disk to be useful.
 
 Set the log level for libkrun. Supported values: 0=off, 1=error, 2=warn, 3=info (default), 4=debug, 5 or more=trace.
 
+- `--log-file`
+
+Specify a file path in which libkrun and krunkit will write the logs. The default is stderr. Note, logs will append to an existing file and not truncate it.
+
 - `--restful-uri`
 
 The URI (address) of the RESTful service. If not specified, defaults to `none://`. Valid schemes are

@@ -7,15 +7,21 @@ use crate::{
     virtio::KrunContextSet,
 };
 
-use std::ffi::{c_char, CString};
+use std::os::fd::{AsRawFd, RawFd};
 use std::{convert::TryFrom, ptr, thread};
+use std::{
+    ffi::{c_char, CString},
+    fs::OpenOptions,
+    io,
+};
 
 use anyhow::{anyhow, Context};
+use env_logger::{Builder, Env, Target};
 
 #[link(name = "krun-efi")]
 extern "C" {
     fn krun_create_ctx() -> i32;
-    fn krun_set_log_level(level: u32) -> i32;
+    fn krun_init_log(target: RawFd, level: u32, style: u32, options: u32) -> i32;
     fn krun_set_gpu_options2(ctx_id: u32, virgl_flags: u32, shm_size: u64) -> i32;
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
     fn krun_set_smbios_oem_strings(ctx_id: u32, oem_strings: *const *const c_char) -> i32;
@@ -26,6 +32,23 @@ extern "C" {
 
 const VIRGLRENDERER_VENUS: u32 = 1 << 6;
 const VIRGLRENDERER_NO_VIRGL: u32 = 1 << 7;
+
+/// The logging library will attempt to use escape sequences for things such as color if the target
+/// supports it. However, if the target does not support these escape sequences, the library will
+/// not force it and ignore them.
+pub const KRUN_LOG_STYLE_AUTO: u32 = 0;
+
+/// By using the RUST_LOG environment variable, it's possible for the user to configure the log
+/// level for Rust projects.
+///
+/// By passing the `KRUN_LOG_OPTION_ENV` constant to the logging crate, we allow the RUST_LOG
+/// environment variable to override the behavior specified by the `--krun-log-level` cmdline
+/// option.
+///
+/// On the contrary, the `KRUN_LOG_OPTION_NO_ENV` will do the opposite. The constant will prevent
+/// the RUST_LOG environment variable from overriding the behavior specified by the cmdline.
+pub const KRUN_LOG_OPTION_ENV: u32 = 0;
+pub const KRUN_LOG_OPTION_NO_ENV: u32 = 1;
 
 /// A wrapper of all data used to configure the krun VM.
 pub struct KrunContext {
@@ -38,10 +61,27 @@ impl TryFrom<Args> for KrunContext {
     type Error = anyhow::Error;
 
     fn try_from(args: Args) -> Result<Self, Self::Error> {
-        // Start by setting up the desired log level for libkrun.
-        unsafe { krun_set_log_level(args.krun_log_level) };
+        let (log_level, options) = match args.krun_log_level {
+            Some(l) => (l, KRUN_LOG_OPTION_NO_ENV),
+            // If the user doesn't specify a log level, default to INFO and allow RUST_LOG
+            // environment variable to override it if the variable is set.
+            None => (3, KRUN_LOG_OPTION_ENV),
+        };
 
-        let log_level = match args.krun_log_level {
+        let (fd, target) = match args.log_file {
+            Some(ref path) => {
+                let file = OpenOptions::new().append(true).create(true).open(path)?;
+                (file.as_raw_fd(), Target::Pipe(Box::new(file)))
+            }
+            None => (io::stderr().as_raw_fd(), Target::Stderr),
+        };
+
+        let ret = unsafe { krun_init_log(fd, log_level, KRUN_LOG_STYLE_AUTO, options) };
+        if ret < 0 {
+            return Err(anyhow!("unable to init libkrun logs: {ret:?}"));
+        }
+
+        let log_level = match log_level {
             0 => "off",
             1 => "error",
             2 => "warn",
@@ -49,8 +89,19 @@ impl TryFrom<Args> for KrunContext {
             4 => "debug",
             _ => "trace",
         };
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(log_level))
-            .init();
+
+        let mut builder = if options == KRUN_LOG_OPTION_NO_ENV {
+            let mut builder = Builder::new();
+            builder.parse_filters(log_level).parse_write_style("auto");
+            builder
+        } else {
+            env_logger::Builder::from_env(
+                Env::new()
+                    .default_filter_or(log_level)
+                    .default_write_style_or("auto"),
+            )
+        };
+        builder.target(target).init();
 
         // Create a new context in libkrun. Store identifier to later use to configure VM
         // resources and devices.
