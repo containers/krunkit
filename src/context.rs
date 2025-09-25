@@ -172,7 +172,8 @@ impl KrunContext {
         let shutdown_eventfd = unsafe { get_shutdown_eventfd(self.id) };
         let uri = self.args.restful_uri.clone();
 
-        if uri != Some(RestfulUri::None) {
+        // Only spawn a listener thread if the user specified unix:// or tcp://
+        if uri.as_ref().is_some_and(|u| *u != RestfulUri::None) {
             thread::spawn(move || status_listener(shutdown_eventfd, uri).unwrap());
         }
 
