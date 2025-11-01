@@ -12,8 +12,8 @@ use std::process::Command;
 use std::{convert::TryFrom, ptr, thread};
 use std::{
     ffi::{c_char, c_int, CString},
-    fs::OpenOptions,
-    io,
+    fs::{File, OpenOptions},
+    io::{self, Read},
     str::FromStr,
 };
 
@@ -67,6 +67,23 @@ pub const KRUN_LOG_STYLE_AUTO: u32 = 0;
 /// the RUST_LOG environment variable from overriding the behavior specified by the cmdline.
 pub const KRUN_LOG_OPTION_ENV: u32 = 0;
 pub const KRUN_LOG_OPTION_NO_ENV: u32 = 1;
+
+const QCOW_MAGIC: [u8; 4] = [0x51, 0x46, 0x49, 0xfb];
+
+fn get_image_format(disk_image: String) -> Result<DiskImageFormat, io::Error> {
+    let mut file = File::open(disk_image)?;
+
+    let mut buffer = [0u8; 4];
+    file.read_exact(&mut buffer)?;
+
+    if buffer == QCOW_MAGIC {
+        println!("Image detected as Qcow2");
+        Ok(DiskImageFormat::Qcow2)
+    } else {
+        println!("Image deteced as Raw");
+        Ok(DiskImageFormat::Raw)
+    }
+}
 
 /// A wrapper of all data used to configure the krun VM.
 pub struct KrunContext {
@@ -160,12 +177,14 @@ impl TryFrom<Args> for KrunContext {
         }
 
         if let Some(ref disk_image) = args.disk_image {
+            let image_format = get_image_format(disk_image.to_string())?;
+
             if unsafe {
                 krun_add_disk2(
                     id,
                     CString::new("root").unwrap().as_ptr(),
                     CString::new(disk_image.clone()).unwrap().as_ptr(),
-                    DiskImageFormat::Raw as u32,
+                    image_format as u32,
                     false,
                 )
             } < 0
