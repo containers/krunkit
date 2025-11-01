@@ -4,7 +4,7 @@ use super::*;
 
 use crate::{
     status::{get_shutdown_eventfd, status_listener, RestfulUri},
-    virtio::KrunContextSet,
+    virtio::{DiskImageFormat, KrunContextSet},
 };
 
 use std::os::fd::{AsRawFd, RawFd};
@@ -20,6 +20,13 @@ use env_logger::{Builder, Env, Target};
 
 #[link(name = "krun-efi")]
 extern "C" {
+    fn krun_add_disk2(
+        ctx_id: u32,
+        c_block_id: *const c_char,
+        c_disk_path: *const c_char,
+        disk_format: u32,
+        read_only: bool,
+    ) -> i32;
     fn krun_create_ctx() -> i32;
     fn krun_init_log(target: RawFd, level: u32, style: u32, options: u32) -> i32;
     fn krun_set_gpu_options2(ctx_id: u32, virgl_flags: u32, shm_size: u64) -> i32;
@@ -139,6 +146,21 @@ impl TryFrom<Args> for KrunContext {
         let vram = std::cmp::min((63488 - rounded_mem) * 1024 * 1024, sys.total_memory());
         if unsafe { krun_set_gpu_options2(id, virgl_flags, vram) } < 0 {
             return Err(anyhow!("unable to set krun vCPU/RAM configuration"));
+        }
+
+        if let Some(ref disk_image) = args.disk_image {
+            if unsafe {
+                krun_add_disk2(
+                    id,
+                    CString::new("root").unwrap().as_ptr(),
+                    CString::new(disk_image.clone()).unwrap().as_ptr(),
+                    DiskImageFormat::Raw as u32,
+                    false,
+                )
+            } < 0
+            {
+                return Err(anyhow!("error configuring disk image"));
+            }
         }
 
         // Configure each virtio device to include in the VM.
