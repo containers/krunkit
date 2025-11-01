@@ -8,15 +8,18 @@ use crate::{
 };
 
 use std::os::fd::{AsRawFd, RawFd};
+use std::process::Command;
 use std::{convert::TryFrom, ptr, thread};
 use std::{
-    ffi::{c_char, CString},
+    ffi::{c_char, c_int, CString},
     fs::OpenOptions,
     io,
+    str::FromStr,
 };
 
 use anyhow::{anyhow, Context};
 use env_logger::{Builder, Env, Target};
+use mac_address::MacAddress;
 
 #[link(name = "krun-efi")]
 extern "C" {
@@ -26,6 +29,14 @@ extern "C" {
         c_disk_path: *const c_char,
         disk_format: u32,
         read_only: bool,
+    ) -> i32;
+    fn krun_add_net_unixstream(
+        ctx_id: u32,
+        c_path: *const c_char,
+        fd: c_int,
+        c_mac: *const u8,
+        features: u32,
+        flags: u32,
     ) -> i32;
     fn krun_create_ctx() -> i32;
     fn krun_init_log(target: RawFd, level: u32, style: u32, options: u32) -> i32;
@@ -160,6 +171,37 @@ impl TryFrom<Args> for KrunContext {
             } < 0
             {
                 return Err(anyhow!("error configuring disk image"));
+            }
+
+            match Command::new("gvproxy")
+                .arg("-listen-qemu")
+                .arg("unix:///tmp/gvproxy-krun.sock")
+                .spawn()
+            {
+                Ok(child) => {
+                    println!("Process spawned successfully with PID: {}", child.id());
+                    unsafe {
+                        if krun_add_net_unixstream(
+                            id,
+                            CString::new("/tmp/gvproxy-krun.sock").unwrap().as_ptr(),
+                            -1,
+                            MacAddress::from_str("56:c8:d4:db:e1:47")
+                                .unwrap()
+                                .bytes()
+                                .as_ptr(),
+                            0,
+                            0,
+                        ) < 0
+                        {
+                            return Err(anyhow!(format!(
+                                "virtio-net unable to configure default interface",
+                            )));
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to spawn process: {}", e);
+                }
             }
         }
 
