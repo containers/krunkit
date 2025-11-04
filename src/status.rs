@@ -48,10 +48,11 @@ impl FromStr for UriScheme {
 /// Socket address in which the restful URI socket should listen on. Identical to Rust's
 /// SocketAddrV4, but requires a modified FromStr implementation due to how the address is
 /// presented on the command line.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum RestfulUri {
     Tcp(Ipv4Addr, u16),
     Unix(String),
+    #[default]
     None,
 }
 
@@ -97,12 +98,6 @@ fn parse_tcp_input(input: &str) -> Result<(Ipv4Addr, u16), anyhow::Error> {
         Ipv4Addr::from_str(&parts[0]).context("restful URI IP address formatted incorrectly")?;
     let port = u16::from_str(&parts[1]).context("restful URI port number formatted incorrectly")?;
     Ok((ip_addr, port))
-}
-
-impl Default for RestfulUri {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 /// Retrieve the shutdown event file descriptor initialized by libkrun.
