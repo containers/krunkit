@@ -54,6 +54,7 @@ pub const KRUN_LOG_OPTION_NO_ENV: u32 = 1;
 pub struct KrunContext {
     id: u32,
     args: Args,
+    compositor: Option<crate::compositor::Compositor>,
 }
 
 /// Create a krun context from the command line arguments.
@@ -160,7 +161,30 @@ impl TryFrom<Args> for KrunContext {
             }
         }
 
-        Ok(Self { id, args })
+        // Initialize compositor if WSLg GUI mode is enabled
+        let mut compositor = if args.wslg_gui {
+            let width = args.wslg_gpu_width;
+            let height = args.wslg_gpu_height;
+            log::info!("Initializing macOS compositor for WSLg GUI mode: {}x{}", width, height);
+            
+            match crate::compositor::create_wslg_compositor(width, height) {
+                Ok(mut comp) => {
+                    comp.set_ctx_id(id);
+                    log::info!("Compositor initialized successfully with context ID {}", id);
+                    Some(comp)
+                }
+                Err(e) => {
+                    log::warn!("Failed to initialize compositor: {}. Graphics may not display.", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        Ok(Self { id, args, compositor })
+    }
+}
     }
 }
 

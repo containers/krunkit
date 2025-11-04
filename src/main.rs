@@ -3,9 +3,11 @@
 #![allow(dead_code)]
 
 mod cmdline;
+mod compositor;
 mod context;
 mod status;
 mod virtio;
+mod wslg;
 
 use cmdline::Args;
 use context::KrunContext;
