@@ -4,22 +4,40 @@ use super::*;
 
 use crate::{
     status::{get_shutdown_eventfd, status_listener, RestfulUri},
-    virtio::KrunContextSet,
+    virtio::{DiskImageFormat, KrunContextSet},
 };
 
 use std::os::fd::{AsRawFd, RawFd};
+use std::process::Command;
 use std::{convert::TryFrom, ptr, thread};
 use std::{
-    ffi::{c_char, CString},
-    fs::OpenOptions,
-    io,
+    ffi::{c_char, c_int, CString},
+    fs::{File, OpenOptions},
+    io::{self, Read},
+    str::FromStr,
 };
 
 use anyhow::{anyhow, Context};
 use env_logger::{Builder, Env, Target};
+use mac_address::MacAddress;
 
 #[link(name = "krun-efi")]
 extern "C" {
+    fn krun_add_disk2(
+        ctx_id: u32,
+        c_block_id: *const c_char,
+        c_disk_path: *const c_char,
+        disk_format: u32,
+        read_only: bool,
+    ) -> i32;
+    fn krun_add_net_unixstream(
+        ctx_id: u32,
+        c_path: *const c_char,
+        fd: c_int,
+        c_mac: *const u8,
+        features: u32,
+        flags: u32,
+    ) -> i32;
     fn krun_create_ctx() -> i32;
     fn krun_init_log(target: RawFd, level: u32, style: u32, options: u32) -> i32;
     fn krun_set_gpu_options2(ctx_id: u32, virgl_flags: u32, shm_size: u64) -> i32;
@@ -49,6 +67,23 @@ pub const KRUN_LOG_STYLE_AUTO: u32 = 0;
 /// the RUST_LOG environment variable from overriding the behavior specified by the cmdline.
 pub const KRUN_LOG_OPTION_ENV: u32 = 0;
 pub const KRUN_LOG_OPTION_NO_ENV: u32 = 1;
+
+const QCOW_MAGIC: [u8; 4] = [0x51, 0x46, 0x49, 0xfb];
+
+fn get_image_format(disk_image: String) -> Result<DiskImageFormat, io::Error> {
+    let mut file = File::open(disk_image)?;
+
+    let mut buffer = [0u8; 4];
+    file.read_exact(&mut buffer)?;
+
+    if buffer == QCOW_MAGIC {
+        println!("Image detected as Qcow2");
+        Ok(DiskImageFormat::Qcow2)
+    } else {
+        println!("Image deteced as Raw");
+        Ok(DiskImageFormat::Raw)
+    }
+}
 
 /// A wrapper of all data used to configure the krun VM.
 pub struct KrunContext {
@@ -139,6 +174,54 @@ impl TryFrom<Args> for KrunContext {
         let vram = std::cmp::min((63488 - rounded_mem) * 1024 * 1024, sys.total_memory());
         if unsafe { krun_set_gpu_options2(id, virgl_flags, vram) } < 0 {
             return Err(anyhow!("unable to set krun vCPU/RAM configuration"));
+        }
+
+        if let Some(ref disk_image) = args.disk_image {
+            let image_format = get_image_format(disk_image.to_string())?;
+
+            if unsafe {
+                krun_add_disk2(
+                    id,
+                    CString::new("root").unwrap().as_ptr(),
+                    CString::new(disk_image.clone()).unwrap().as_ptr(),
+                    image_format as u32,
+                    false,
+                )
+            } < 0
+            {
+                return Err(anyhow!("error configuring disk image"));
+            }
+
+            match Command::new("gvproxy")
+                .arg("-listen-qemu")
+                .arg("unix:///tmp/gvproxy-krun.sock")
+                .spawn()
+            {
+                Ok(child) => {
+                    println!("Process spawned successfully with PID: {}", child.id());
+                    unsafe {
+                        if krun_add_net_unixstream(
+                            id,
+                            CString::new("/tmp/gvproxy-krun.sock").unwrap().as_ptr(),
+                            -1,
+                            MacAddress::from_str("56:c8:d4:db:e1:47")
+                                .unwrap()
+                                .bytes()
+                                .as_ptr(),
+                            0,
+                            0,
+                        ) < 0
+                        {
+                            return Err(anyhow!(format!(
+                                "virtio-net unable to configure default interface",
+                            )));
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to spawn process: {}", e);
+                }
+            }
         }
 
         // Configure each virtio device to include in the VM.

@@ -17,11 +17,11 @@ use clap::Parser;
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// Number of vCPUs for the VM.
-    #[arg(long, short)]
+    #[arg(long, short, default_value_t = 2)]
     pub cpus: u8,
 
     /// Amount of RAM available to VM.
-    #[arg(long, short)]
+    #[arg(long, short, default_value_t = 4096)]
     pub memory: u32,
 
     /// Bootloader configuration.
@@ -59,6 +59,9 @@ pub struct Args {
     /// Path of log file
     #[arg(long = "log-file")]
     pub log_file: Option<PathBuf>,
+
+    /// Disk image for easy mode.
+    pub disk_image: Option<String>,
 }
 
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
