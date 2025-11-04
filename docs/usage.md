@@ -25,6 +25,26 @@ The URI (address) of the RESTful service. If not specified, defaults to `none://
 
 Specify a path in which krunkit will write the PID to. The option does not provide any form of locking.
 
+### WSLg-like Features
+
+- `--wslg-gui`
+
+Enable WSLg-like GUI application support. This automatically configures virtio-gpu and input devices for running Linux GUI applications.
+
+- `--wslg-audio`
+
+Enable WSLg-like audio support using PulseAudio.
+
+- `--wslg-gpu-width`
+
+Set the GPU width in pixels for WSLg GUI mode. Default: 1920.
+
+- `--wslg-gpu-height`
+
+Set the GPU height in pixels for WSLg GUI mode. Default: 1080.
+
+See [`wslg-like-features.md`](./wslg-like-features.md) for detailed information on WSLg-like functionality.
+
 ### Virtual Machine Resources
 
 - `--cpus`

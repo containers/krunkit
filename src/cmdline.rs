@@ -59,6 +59,22 @@ pub struct Args {
     /// Path of log file
     #[arg(long = "log-file")]
     pub log_file: Option<PathBuf>,
+
+    /// Enable WSLg-like GUI application support
+    #[arg(long = "wslg-gui")]
+    pub wslg_gui: bool,
+
+    /// Enable WSLg-like audio support
+    #[arg(long = "wslg-audio")]
+    pub wslg_audio: bool,
+
+    /// GPU width for WSLg GUI (default: 1920)
+    #[arg(long = "wslg-gpu-width", default_value_t = 1920)]
+    pub wslg_gpu_width: u32,
+
+    /// GPU height for WSLg GUI (default: 1080)
+    #[arg(long = "wslg-gpu-height", default_value_t = 1080)]
+    pub wslg_gpu_height: u32,
 }
 
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
