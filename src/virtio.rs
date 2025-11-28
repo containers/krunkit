@@ -41,7 +41,7 @@ const SOCK_TYPE_UNIX_SOCKET_PATH: &str = "unixSocketPath";
 const SOCK_TYPE_UNIXGRAM: &str = "unixgram";
 const SOCK_TYPE_UNIXSTREAM: &str = "unixstream";
 
-#[link(name = "krun-efi")]
+#[link(name = "krun")]
 extern "C" {
     fn krun_add_disk2(
         ctx_id: u32,

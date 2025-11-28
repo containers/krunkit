@@ -59,6 +59,10 @@ pub struct Args {
     /// Path of log file
     #[arg(long = "log-file")]
     pub log_file: Option<PathBuf>,
+
+    /// Firmware path.
+    #[arg(long, short)]
+    pub firmware_path: Option<PathBuf>,
 }
 
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
