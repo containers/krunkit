@@ -8,6 +8,7 @@ use crate::{
 };
 
 use std::os::fd::{AsRawFd, RawFd};
+use std::path::PathBuf;
 use std::{convert::TryFrom, ptr, thread};
 use std::{
     ffi::{c_char, CString},
@@ -18,10 +19,11 @@ use std::{
 use anyhow::{anyhow, Context};
 use env_logger::{Builder, Env, Target};
 
-#[link(name = "krun-efi")]
+#[link(name = "krun")]
 extern "C" {
     fn krun_create_ctx() -> i32;
     fn krun_init_log(target: RawFd, level: u32, style: u32, options: u32) -> i32;
+    fn krun_set_firmware(ctx_id: u32, c_firmware_path: *const c_char) -> i32;
     fn krun_set_gpu_options2(ctx_id: u32, virgl_flags: u32, shm_size: u64) -> i32;
     fn krun_set_vm_config(ctx_id: u32, num_vcpus: u8, ram_mib: u32) -> i32;
     fn krun_set_smbios_oem_strings(ctx_id: u32, oem_strings: *const *const c_char) -> i32;
@@ -49,6 +51,23 @@ pub const KRUN_LOG_STYLE_AUTO: u32 = 0;
 /// the RUST_LOG environment variable from overriding the behavior specified by the cmdline.
 pub const KRUN_LOG_OPTION_ENV: u32 = 0;
 pub const KRUN_LOG_OPTION_NO_ENV: u32 = 1;
+
+fn get_firmware_path() -> Option<PathBuf> {
+    let exec_path = std::env::current_exe().ok()?;
+    let base_dir = exec_path.parent()?.parent()?;
+    let fw_path = base_dir.join("share/krunkit/KRUN_EFI.silent.fd");
+    if fw_path.exists() {
+        return Some(fw_path);
+    }
+    // This is useful for testing directly from a cloned repo.
+    let base_dir = base_dir.parent()?;
+    let fw_path = base_dir.join("edk2/KRUN_EFI.silent.fd");
+    if fw_path.exists() {
+        Some(fw_path)
+    } else {
+        None
+    }
+}
 
 /// A wrapper of all data used to configure the krun VM.
 pub struct KrunContext {
@@ -112,6 +131,18 @@ impl TryFrom<Args> for KrunContext {
 
         // Safe to unwrap, as it's already ensured that id >= 0.
         let id = u32::try_from(id).unwrap();
+
+        let fw_path = match args.firmware_path {
+            Some(ref path) => CString::new(path.to_str().unwrap()).unwrap(),
+            None => match get_firmware_path() {
+                Some(path) => CString::new(path.to_str().unwrap()).unwrap(),
+                None => return Err(anyhow!("can't find a firmware to load")),
+            },
+        };
+
+        if unsafe { krun_set_firmware(id, fw_path.as_ptr()) } < 0 {
+            return Err(anyhow!("unable to configure the firmware to be loaded"));
+        }
 
         // Set the krun VM's number of vCPUs and amount of memory allocated.
         if args.cpus == 0 {
