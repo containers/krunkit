@@ -16,6 +16,8 @@ use std::{
     io,
 };
 
+use crate::timesync::timesync_listener;
+use crate::virtio::{VsockAction, VsockConfig};
 use anyhow::{anyhow, Context};
 use env_logger::{Builder, Env, Target};
 
@@ -189,6 +191,19 @@ impl TryFrom<Args> for KrunContext {
                 0 => log::debug!("nested virtualization is not supported on this host. -n,--nested argument ignored"),
                 _ => return Err(anyhow!("unable to check nested virtualization is supported on this host")),
             }
+        }
+
+        if let Some(timesync_port) = args.timesync {
+            let vsock_config = VsockConfig {
+                port: timesync_port,
+                socket_url: PathBuf::from(format!(
+                    "/tmp/krunkit_timesync_{}.sock",
+                    std::process::id()
+                )),
+                action: VsockAction::Connect,
+            };
+            unsafe { vsock_config.krun_ctx_set(id)? }
+            thread::spawn(move || timesync_listener(vsock_config));
         }
 
         Ok(Self { id, args })
