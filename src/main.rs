@@ -4,7 +4,9 @@
 
 mod cmdline;
 mod context;
+mod sleep_notifier;
 mod status;
+mod timesync;
 mod virtio;
 
 use cmdline::Args;
