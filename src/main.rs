@@ -5,6 +5,7 @@
 mod cmdline;
 mod context;
 mod status;
+mod timesync;
 mod virtio;
 
 use cmdline::Args;

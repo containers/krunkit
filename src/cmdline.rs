@@ -63,6 +63,17 @@ pub struct Args {
     /// Firmware path.
     #[arg(long, short)]
     pub firmware_path: Option<PathBuf>,
+
+    /// Vsock port for timesync
+    #[arg(long = "timesync", value_parser = parse_timesync)]
+    pub timesync: Option<u32>,
+}
+
+fn parse_timesync(s: &str) -> Result<u32, String> {
+    s.strip_prefix("vsockPort=")
+        .ok_or_else(|| "expected 'vsockPort=<port>'".to_string())?
+        .parse()
+        .map_err(|e| format!("invalid timesync port: {e}"))
 }
 
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
