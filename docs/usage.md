@@ -166,10 +166,14 @@ facilitate communication between the two.
 
 Multiple instances of a `virtio-vsock` device can be specified, yet port numbers for these sockets must be unique.
 
+There are two modes - `listen` and `connect`.
+
 #### Arguments
 
 - `port`: `AF_VSOCK` port to connect to on the guest.
 - `socketURL`: Path to the UNIX socket on the host.
+- `listen`: Enable guest to host communication. (Default mode)
+- `connect`: Enable host to guest communication.
 
 #### Example
 
@@ -178,6 +182,12 @@ This adds a virtio-vsock device to a virtual machine, and will forward all guest
 
 ```
 --device virtio-vsock,port=1024,socketURL=/Users/user/vm-socket.sock
+```
+
+To enable host-initiated connections to the guest:
+
+```
+--device virtio-vsock,port=1024,socketURL=/Users/user/vm-socket.sock,connect
 ```
 
 ### File Sharing
