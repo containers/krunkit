@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "IOKit-sys"
+version = "0.1.5"
+source = "git+https://github.com/vyasgun/iokit-sys?branch=master#a8f2107da9141e1af8ee4e0280003cceefbf455a"
+dependencies = [
+ "core-foundation",
+ "libc",
+ "mach",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -139,6 +149,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
+name = "core-foundation"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -232,8 +252,10 @@ dependencies = [
 name = "krunkit"
 version = "1.1.1"
 dependencies = [
+ "IOKit-sys",
  "anyhow",
  "clap",
+ "core-foundation",
  "env_logger",
  "log",
  "mac_address",
@@ -261,6 +283,15 @@ checksum = "4863ee94f19ed315bf3bc00299338d857d4b5bc856af375cc97d237382ad3856"
 dependencies = [
  "nix",
  "winapi",
+]
+
+[[package]]
+name = "mach"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fd13ee2dd61cc82833ba05ade5a30bb3d63f7ced605ef827063c63078302de9"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

@@ -63,6 +63,10 @@ pub struct Args {
     /// Firmware path.
     #[arg(long, short)]
     pub firmware_path: Option<PathBuf>,
+
+    /// Vsock port for timesync
+    #[arg(long = "timesync")]
+    pub timesync: Option<u32>,
 }
 
 /// Parse the input string into a hash map of key value pairs, associating the argument with its
