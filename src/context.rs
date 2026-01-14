@@ -17,8 +17,7 @@ use std::{
 };
 
 use crate::timesync::timesync_listener;
-use crate::virtio::VsockAction;
-use crate::virtio::VsockConfig;
+use crate::virtio::{VsockAction, VsockConfig};
 use anyhow::{anyhow, Context};
 use env_logger::{Builder, Env, Target};
 

@@ -3,14 +3,13 @@
 use core_foundation::runloop::{
     kCFRunLoopCommonModes, CFRunLoopAddSource, CFRunLoopGetCurrent, CFRunLoopRun, __CFRunLoopSource,
 };
-use std::ffi::c_void;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::{Receiver, Sender};
+use std::{ffi::c_void, sync::mpsc::{channel, Receiver, Sender}};
 use IOKit_sys::{
     io_object_t, io_service_t, kIOMessageSystemHasPoweredOn, kIOMessageSystemWillPowerOn,
     kIOMessageSystemWillSleep, IONotificationPortGetRunLoopSource, IONotificationPortRef,
     IORegisterForSystemPower,
 };
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Activity {
     Sleep,
@@ -24,7 +23,7 @@ extern "C" fn power_callback(
     _message_argument: *mut c_void,
 ) {
     let tx = unsafe { &*(refcon as *mut Sender<Activity>) };
-    log::info!("Power callback called: {:X?}", message_type);
+    log::debug!("Power callback called: {:X?}", message_type);
     match message_type {
         kIOMessageSystemWillSleep => tx.send(Activity::Sleep).unwrap(),
         kIOMessageSystemWillPowerOn => tx.send(Activity::Wake).unwrap(),
