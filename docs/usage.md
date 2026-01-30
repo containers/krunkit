@@ -25,6 +25,21 @@ The URI (address) of the RESTful service. If not specified, defaults to `none://
 
 Specify a path in which krunkit will write the PID to. The option does not provide any form of locking.
 
+- `--timesync`
+
+Specify a Vsock port on which the host will send the current time to
+the `qemu-guest-agent` process running inside the guest.
+
+#### Example
+
+```bash
+--timesync vsockPort=1234
+```
+On guest:
+```bash
+ /usr/bin/qemu-ga --method=vsock-listen --path=3:1234 --logfile=/var/log/qemu-ga.log -v
+```
+
 ### Virtual Machine Resources
 
 - `--cpus`
