@@ -20,7 +20,7 @@ pub struct Args {
     #[arg(long, short)]
     pub cpus: u8,
 
-    /// Amount of RAM available to VM.
+    /// Amount of RAM available to VM, in MiB.
     #[arg(long, short)]
     pub memory: u32,
 
