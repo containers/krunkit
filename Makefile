@@ -2,9 +2,8 @@ OS = $(shell uname -s)
 KRUNKIT_RELEASE = target/release/krunkit
 KRUNKIT_DEBUG = target/debug/krunkit
 
-ifeq ($(PREFIX),)
-    PREFIX := /usr/local
-endif
+PREFIX ?= /usr/local
+export PREFIX
 
 .PHONY: install clean $(KRUNKIT_RELEASE) $(KRUNKIT_DEBUG)
 
