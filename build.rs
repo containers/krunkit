@@ -8,5 +8,7 @@ fn main() {
 
         let prefix = std::env::var("PREFIX").unwrap_or(DEFAULT_PREFIX.to_string());
         println!("cargo:rustc-link-search={prefix}/lib");
+
+        println!("cargo:rerun-if-env-changed=PREFIX");
     }
 }
