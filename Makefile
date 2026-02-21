@@ -1,10 +1,10 @@
 OS = $(shell uname -s)
 KRUNKIT_RELEASE = target/release/krunkit
 KRUNKIT_DEBUG = target/debug/krunkit
+LIBKRUN = libkrun.1.dylib
 
-ifeq ($(PREFIX),)
-    PREFIX := /usr/local
-endif
+PREFIX ?= /usr/local
+export PREFIX
 
 .PHONY: install clean $(KRUNKIT_RELEASE) $(KRUNKIT_DEBUG)
 
@@ -15,6 +15,7 @@ debug: $(KRUNKIT_DEBUG)
 $(KRUNKIT_RELEASE):
 	cargo build --release
 ifeq ($(OS),Darwin)
+	install_name_tool -change $(LIBKRUN) $(PREFIX)/lib/$(LIBKRUN) $@
 	codesign --entitlements krunkit.entitlements --force -s - $@
 endif
 

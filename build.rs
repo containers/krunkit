@@ -3,9 +3,12 @@
 fn main() {
     #[cfg(target_os = "macos")]
     {
-        match std::env::var_os("LIBKRUN_EFI") {
-            Some(path) => println!("cargo:rustc-link-search={}", path.into_string().unwrap()),
-            None => println!("cargo:rustc-link-search=/opt/homebrew/lib"),
-        }
+        // Must match the default PREFIX in the Makefile.
+        const DEFAULT_PREFIX: &str = "/usr/local";
+
+        let prefix = std::env::var("PREFIX").unwrap_or(DEFAULT_PREFIX.to_string());
+        println!("cargo:rustc-link-search={prefix}/lib");
+
+        println!("cargo:rerun-if-env-changed=PREFIX");
     }
 }
