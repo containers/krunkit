@@ -15,13 +15,18 @@ $ brew install krunkit
 
 As noted above, `krunkit` relies on the `efi` flavor of `libkrun`. Ensure that is installed on your system.
 
-```
-# If libkrun-efi.dylib is not located at /opt/homebrew/opt/libkrun-efi/lib/
-# provide the path at which it's located using the LIBKRUN_EFI variable. Otherwise,
-# the Makefile will default to using the /opt/homebrew/... path.
-$ make LIBKRUN_EFI=<path to libkrun-efi.dylib>
+Build and install using default `PREFIX` (`/usr/local`):
 
-$ sudo make install
+```
+make
+sudo make install
+```
+
+To build with `libkrun-efi` from *Homebrew* or *MacPorts* use the appropriate `PREFIX`:
+
+```
+make PREFIX=/opt/homebrew
+sudo make install PREFIX=/opt/homebrew
 ```
 
 ## Usage
