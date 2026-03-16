@@ -11,20 +11,22 @@ VERSION=`grep ^version Cargo.toml | sed -E 's/version = "(.*)"/\1/'`
 mkdir -p release
 mkdir -p release/bin
 mkdir -p release/lib
+mkdir -p release/share/krunkit
 
 BIN=release/bin
 LIB=release/lib
+SHARE=release/share/krunkit
 
 cp $HOMEBREW_PREFIX/bin/krunkit $BIN
-install_name_tool -change /opt/homebrew/opt/libkrun-efi/lib/libkrun-efi.1.dylib @rpath/libkrun-efi.dylib $BIN/krunkit
+install_name_tool -change /opt/homebrew/opt/libkrun/lib/libkrun.1.dylib @rpath/libkrun.dylib $BIN/krunkit
 install_name_tool -add_rpath $RPATH $BIN/krunkit
 codesign --remove-signature $BIN/krunkit
 
-cp $HOMEBREW_PREFIX/lib/libkrun-efi.dylib $LIB
-install_name_tool -id @rpath/libkrun-efi.dylib $LIB/libkrun-efi.dylib
-install_name_tool -change /opt/homebrew/opt/libepoxy/lib/libepoxy.0.dylib @rpath/libepoxy.0.dylib $LIB/libkrun-efi.dylib
-install_name_tool -change /opt/homebrew/opt/virglrenderer/lib/libvirglrenderer.1.dylib @rpath/libvirglrenderer.1.dylib $LIB/libkrun-efi.dylib
-codesign --remove-signature $LIB/libkrun-efi.dylib
+cp $HOMEBREW_PREFIX/lib/libkrun.dylib $LIB
+install_name_tool -id @rpath/libkrun.dylib $LIB/libkrun.dylib
+install_name_tool -change /opt/homebrew/opt/libepoxy/lib/libepoxy.0.dylib @rpath/libepoxy.0.dylib $LIB/libkrun.dylib
+install_name_tool -change /opt/homebrew/opt/virglrenderer/lib/libvirglrenderer.1.dylib @rpath/libvirglrenderer.1.dylib $LIB/libkrun.dylib
+codesign --remove-signature $LIB/libkrun.dylib
 
 cp $HOMEBREW_PREFIX/lib/libepoxy.0.dylib $LIB
 install_name_tool -id @rpath/libepoxy.0.dylib $LIB/libepoxy.0.dylib
@@ -40,8 +42,10 @@ cp $HOMEBREW_PREFIX/lib/libMoltenVK.dylib $LIB
 install_name_tool -id @rpath/libMoltenVK.dylib $LIB/libMoltenVK.dylib
 codesign --remove-signature $LIB/libMoltenVK.dylib
 
+cp $HOMEBREW_PREFIX/share/krunkit/KRUN_EFI.silent.fd $SHARE
+
 # Check there aren't any references to the Homebrew prefix in the binaries
-for i in $BIN/krunkit $LIB/libkrun-efi.dylib $LIB/libepoxy.0.dylib $LIB/libvirglrenderer.1.dylib $LIB/libMoltenVK.dylib; do
+for i in $BIN/krunkit $LIB/libkrun.dylib $LIB/libepoxy.0.dylib $LIB/libvirglrenderer.1.dylib $LIB/libMoltenVK.dylib; do
 	otool -L $i | grep $HOMEBREW_PREFIX
 	if [ $? == 0 ]; then
 		echo "ERROR: $i still has references to HOMEBREW"
