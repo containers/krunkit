@@ -61,6 +61,12 @@ fn get_firmware_path() -> Option<PathBuf> {
     if fw_path.exists() {
         return Some(fw_path);
     }
+    // Try again on the parent.
+    let base_dir = exec_path.parent()?;
+    let fw_path = base_dir.join("share/krunkit/KRUN_EFI.silent.fd");
+    if fw_path.exists() {
+        return Some(fw_path);
+    }
     // This is useful for testing directly from a cloned repo.
     let base_dir = base_dir.parent()?;
     let fw_path = base_dir.join("edk2/KRUN_EFI.silent.fd");
